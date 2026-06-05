@@ -1,0 +1,157 @@
+// ============================================================
+// MODELO DE RUTINA - Capa de acceso a datos
+// ============================================================
+// Esta capa es la ÚNICA que habla directamente con la base
+// de datos. Recibe parámetros, ejecuta SQL, devuelve datos.
+//
+// ⚠️ NO sabe nada de HTTP, ni de Express, ni de req/res.
+//    Si mañana cambiamos de REST a GraphQL, este archivo
+//    NO se toca. Esa es la gracia de la separación en capas.
+
+const pool = require('../config/db');
+
+// ============================================================
+// obtenerRutinaConEjercicios(rutinaId)
+// ============================================================
+// Devuelve UNA rutina con TODOS sus ejercicios asociados en
+// un solo objeto JSON anidado.
+//
+// ¿Cómo funciona?
+//   1. Ejecuta un JOIN que trae la rutina + ejercicios en
+//      UNA SOLA consulta a la DB (1 solo viaje redondo).
+//   2. El resultado de SQL es TABULAR (filas y columnas).
+//      Si una rutina tiene 5 ejercicios, recibís 5 filas,
+//      cada una con los datos de la rutina repetidos.
+//   3. En JavaScript reestructuramos eso a un objeto anidado.
+//      Es decir: transformamos lo TABULAR en lo JERÁRQUICO.
+//
+// ¿Por qué un LEFT JOIN y no dos queries separadas?
+//   - Una query con JOIN = 1 viaje a la DB
+//   - Dos queries separadas = 2 viajes a la DB
+//   - En desarrollo no se nota, pero con 1000 requests por
+//     segundo, la diferencia es ABISMAL.
+//
+// Parámetros:
+//   rutinaId (number) - ID de la rutina a buscar
+//
+// Retorna:
+//   { id, nombre, descripcion, ejercicios: [...] }
+//   o null si la rutina no existe
+async function obtenerRutinaConEjercicios(rutinaId) {
+  // ============================================================
+  // CONSULTA SQL con JOIN
+  // ============================================================
+  // La query une 3 tablas:
+  //   rutinas            → r (datos de la rutina)
+  //   ejercicios_rutinas → er (tabla pivote: relación N a N)
+  //   ejercicios         → e (datos de cada ejercicio)
+  //
+  // LEFT JOIN: si una rutina no tiene ejercicios, igual
+  // la devolvemos (con lista vacía en vez de error).
+  //
+  // Usamos ALIAS (AS) para renombrar columnas y evitar
+  // conflictos cuando dos tablas tienen columnas con el
+  // mismo nombre (ej: r.id vs e.id).
+  //
+  // El ? es un PLACEHOLDER. mysql2 lo reemplaza de forma
+  // SEGURA escapando el valor. Así prevenimos INYECCIÓN SQL.
+  const sql = `
+    SELECT
+      r.id          AS rutina_id,
+      r.nombre      AS rutina_nombre,
+      r.descripcion AS rutina_descripcion,
+      e.id          AS ejercicio_id,
+      e.nombre      AS ejercicio_nombre,
+      e.descripcion AS ejercicio_descripcion,
+      er.orden,
+      er.series,
+      er.repeticiones
+    FROM rutinas r
+    LEFT JOIN ejercicios_rutinas er ON r.id = er.rutina_id
+    LEFT JOIN ejercicios e ON er.ejercicio_id = e.id
+    WHERE r.id = ?
+    ORDER BY er.orden ASC
+  `;
+
+  // ============================================================
+  // EJECUCIÓN DE LA CONSULTA
+  // ============================================================
+  // pool.execute(sql, [rutinaId]):
+  //   - 1er parámetro: la consulta SQL
+  //   - 2do parámetro: array con los valores para los ?
+  //     (aunque sea 1 valor, va dentro de un array)
+  //
+  // Devuelve [rows, fields]:
+  //   - rows:   array de objetos (las filas resultantes)
+  //   - fields: metadatos de las columnas (no lo usamos)
+  const [rows] = await pool.execute(sql, [rutinaId]);
+
+  // ============================================================
+  // ¿LA RUTINA EXISTE?
+  // ============================================================
+  // Si no hay filas, significa que no hay ninguna rutina
+  // con ese ID en la base de datos → devolvemos null
+  if (rows.length === 0) {
+    return null;
+  }
+
+  // ============================================================
+  // REESTRUCTURACIÓN: de TABULAR a JERÁRQUICO
+  // ============================================================
+  // El resultado de SQL es algo así:
+  //
+  //   rutina_id | rutina_nombre | ejercicio_id | ejercicio_nombre | orden
+  //   ----------+---------------+--------------+------------------+-------
+  //   1         | Pecho         | 1            | Press Banca      | 1
+  //   1         | Pecho         | 2            | Aperturas        | 2
+  //   1         | Pecho         | 3            | Pullover         | 3
+  //
+  // Una misma rutina aparece repetida en cada fila porque
+  // el JOIN genera UNA FILA POR EJERCICIO.
+  //
+  // Queremos convertirlo en:
+  //
+  //   {
+  //     id: 1,
+  //     nombre: "Pecho",
+  //     ejercicios: [
+  //       { id: 1, nombre: "Press Banca", orden: 1, ... },
+  //       { id: 2, nombre: "Aperturas",   orden: 2, ... },
+  //     ]
+  //   }
+  //
+  // Para eso: tomamos los datos de la rutina de la PRIMERA
+  // fila (todas tienen los mismos datos de rutina), y
+  // recorremos TODAS las filas construyendo el array
+  // de ejercicios.
+
+  // Extraemos los datos de la rutina desde la primera fila
+  const rutina = {
+    id:          rows[0].rutina_id,
+    nombre:      rows[0].rutina_nombre,
+    descripcion: rows[0].rutina_descripcion,
+    ejercicios:  [],
+  };
+
+  // Recorremos cada fila y, si tiene un ejercicio asociado
+  // (el LEFT JOIN puede traer NULL si no hay ejercicios),
+  // lo agregamos al array.
+  for (const fila of rows) {
+    // Si la rutina no tiene ejercicios, ejercicio_id viene NULL
+    if (fila.ejercicio_id !== null) {
+      rutina.ejercicios.push({
+        id:           fila.ejercicio_id,
+        nombre:       fila.ejercicio_nombre,
+        descripcion:  fila.ejercicio_descripcion,
+        orden:        fila.orden,
+        series:       fila.series,
+        repeticiones: fila.repeticiones,
+      });
+    }
+  }
+
+  return rutina;
+}
+
+// Exportamos la función para que el controlador la use
+module.exports = { obtenerRutinaConEjercicios };

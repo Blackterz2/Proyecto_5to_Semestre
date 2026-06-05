@@ -1,0 +1,23 @@
+# ============================================================
+# DEPENDENCIAS
+# ============================================================
+# node_modules contiene TODOS los paquetes instalados con npm.
+# NO se sube al repo porque:
+#   1. Ocupa cientos de megas
+#   2. Se regenera con "npm install"
+#   3. Causa conflictos entre SO (paquetes nativos compilados)
+node_modules/
+
+# ============================================================
+# VARIABLES DE ENTORNO
+# ============================================================
+# .env contiene credenciales reales de la base de datos.
+# NUNCA se sube al repo. Solo subís .env.example con valores
+# de ejemplo.
+.env
+
+# ============================================================
+# SISTEMA OPERATIVO
+# ============================================================
+.DS_Store
+Thumbs.db
