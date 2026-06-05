@@ -20,6 +20,7 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 // Importamos las rutas de healthcheck
 const healthRouter = require('./routes/health');
@@ -29,6 +30,9 @@ const rutinaRouter = require('./routes/rutinaRoutes');
 
 // Importamos las rutas de sesiones (Hito 4 - Transacciones SQL)
 const sesionRouter = require('./routes/sesionRoutes');
+
+// Importamos las rutas de autenticación (Hito 6 - JWT + bcrypt)
+const authRouter = require('./routes/authRoutes');
 
 // ============================================================
 // 2. CONFIGURACIÓN DE EXPRESS
@@ -55,6 +59,16 @@ app.use(cors());
 // Sin esto, req.body sería undefined.
 app.use(express.json());
 
+// express.static('public'): Sirve archivos ESTÁTICOS (HTML, CSS, JS,
+// imágenes) desde la carpeta /public de forma automática.
+//
+// Cualquier archivo en /public se puede acceder directamente desde
+// el navegador. Ej: /public/index.html → http://localhost:3000/
+//                        /public/styles.css → http://localhost:3000/styles.css
+//
+// Sin esto, el navegador no podría cargar el CSS ni el JS del frontend.
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
 // ============================================================
 // 4. RUTAS
 // ============================================================
@@ -73,6 +87,12 @@ app.use('/api/rutinas', rutinaRouter);
 // Montamos el router de sesiones en /api/sesiones.
 // Ejemplo: router.post('/') → responde en POST /api/sesiones
 app.use('/api/sesiones', sesionRouter);
+
+// Montamos el router de autenticación en /api/auth.
+// Ejemplos:
+//   router.post('/register') → POST /api/auth/register
+//   router.post('/login')    → POST /api/auth/login
+app.use('/api/auth', authRouter);
 
 // ============================================================
 // 5. MIDDLEWARE DE ERRORES
@@ -102,5 +122,6 @@ app.listen(PORT, () => {
   console.log(`========================================`);
   console.log(`  🚀 Servidor corriendo en el puerto ${PORT}`);
   console.log(`  📡 Healthcheck: http://localhost:${PORT}/api/health`);
+  console.log(`  🖥️  Frontend:     http://localhost:${PORT}/`);
   console.log(`========================================`);
 });

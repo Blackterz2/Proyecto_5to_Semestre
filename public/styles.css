@@ -1,0 +1,268 @@
+/* ============================================================
+   BLACKTERZ — ESTILOS (Dark Mode + Cards)
+   ============================================================
+   Diseño inspirado en apps de fitness: fondo oscuro,
+   colores neón/acento para destacar, tarjetas con bordes
+   redondeados y sombras sutiles.
+   
+   ¿Por qué Dark Mode?
+   - Menos fatiga visual en entornos con poca luz (gimnasio).
+   - Las pantallas OLED consumen menos energía con pixeles negros.
+   - Se ve más moderno. Punto.
+   ============================================================ */
+
+/* ============================================================
+   VARIABLES CSS (para mantener colores consistentes)
+   ============================================================
+   Si querés cambiar el color acento, tocás esto en UN solo lado. */
+:root {
+  --bg-primary: #0f0f0f;        /* Fondo principal */
+  --bg-secondary: #1a1a2e;      /* Fondo de tarjetas */
+  --bg-card: #16213e;           /* Fondo de cada ejercicio */
+  --text-primary: #e0e0e0;      /* Texto principal */
+  --text-secondary: #8892b0;    /* Texto secundario */
+  --accent: #e94560;            /* Color acento (rojo fitness) */
+  --accent-hover: #ff6b81;      /* Acento más claro para hover */
+  --border: #2a2a4a;            /* Bordes de tarjetas */
+  --success: #00d2aa;           /* Verde para datos positivos */
+}
+
+/* ============================================================
+   RESET BÁSICO
+   ============================================================
+   Sacamos márgenes/paddings que el navegador pone por defecto
+   y usamos border-box para que el padding no agrande las cajas. */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ============================================================
+   BODY
+   ============================================================ */
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   CONTENEDOR CENTRADO
+   ============================================================ */
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.header {
+  background: linear-gradient(135deg, var(--bg-secondary), var(--bg-card));
+  padding: 30px 0;
+  border-bottom: 2px solid var(--accent);
+  text-align: center;
+}
+
+.app-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: -1px;
+}
+
+.app-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin-top: 4px;
+}
+
+/* ============================================================
+   TÍTULO DE LA RUTINA
+   ============================================================ */
+.rutina-header {
+  padding: 30px 0 10px;
+}
+
+.rutina-nombre {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rutina-descripcion {
+  color: var(--text-secondary);
+  margin-top: 6px;
+  font-size: 1rem;
+}
+
+/* ============================================================
+   SEPARADOR
+   ============================================================ */
+.divider {
+  border: none;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--accent), transparent);
+  margin: 20px 0;
+}
+
+/* ============================================================
+   GRID DE EJERCICIOS
+   ============================================================ */
+.ejercicios-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 40px;
+}
+
+/* ============================================================
+   TARJETA (CARD) DE CADA EJERCICIO
+   ============================================================ */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px 28px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  /* Sombra sutil que se intensifica al hacer hover */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Efecto hover: la tarjeta se levanta un poco */
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(233, 69, 96, 0.15);
+  border-color: var(--accent);
+}
+
+/* Cabecera de la tarjeta: número de orden + nombre */
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.card-orden {
+  background: var(--accent);
+  color: white;
+  font-weight: 700;
+  font-size: 0.85rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.card-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Descripción del ejercicio */
+.card-descripcion {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+/* Datos de series/repes/peso en formato de etiquetas */
+.card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.stat {
+  background: rgba(233, 69, 96, 0.1);
+  border: 1px solid rgba(233, 69, 96, 0.2);
+  border-radius: 8px;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.stat-icon {
+  font-size: 1.1rem;
+}
+
+.stat-value {
+  font-weight: 700;
+  color: var(--success);
+}
+
+.stat-label {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+/* ============================================================
+   ESTADOS: CARGA, ERROR, VACÍO
+   ============================================================ */
+.loading,
+.error,
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+
+.error {
+  color: var(--accent);
+}
+
+.loading::after {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.footer {
+  margin-top: auto;
+  text-align: center;
+  padding: 20px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+/* ============================================================
+   RESPONSIVE: se ve bien en celulares también
+   ============================================================ */
+@media (max-width: 600px) {
+  .app-title { font-size: 1.5rem; }
+  .rutina-nombre { font-size: 1.3rem; }
+  .card { padding: 16px 18px; }
+  .card-title { font-size: 1rem; }
+  .card-stats { gap: 8px; }
+  .stat { padding: 6px 10px; font-size: 0.8rem; }
+}

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blackterz - Rutina</title>
+
+  <!-- ============================================================
+  HOJA DE ESTILOS
+  ============================================================ -->
+  <!-- Vinculamos el CSS. Sin esta línea, el navegador no sabe
+       qué estilos aplicar y la página se ve en blanco y negro
+       con el estilo por defecto del navegador. -->
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+  <!-- ============================================================
+  HEADER - Encabezado de la página
+  ============================================================ -->
+  <header class="header">
+    <div class="container">
+      <h1 class="app-title">🏋️ Blackterz</h1>
+      <p class="app-subtitle">Rutina de entrenamiento</p>
+    </div>
+  </header>
+
+  <!-- ============================================================
+  CONTENEDOR PRINCIPAL
+  ============================================================ -->
+  <main class="container">
+
+    <!-- TÍTULO DE LA RUTINA (se llena desde app.js) -->
+    <div id="titulo-rutina" class="rutina-header">
+      <h2 class="rutina-nombre">Cargando rutina...</h2>
+      <p class="rutina-descripcion"></p>
+    </div>
+
+    <!-- SEPARADOR -->
+    <hr class="divider" />
+
+    <!-- CONTENEDOR DE TARJETAS DE EJERCICIOS -->
+    <!-- app.js va a inyectar aquí las tarjetas generadas
+         dinámicamente con document.createElement() -->
+    <div id="contenedor-ejercicios" class="ejercicios-grid"></div>
+
+  </main>
+
+  <!-- ============================================================
+  FOOTER
+  ============================================================ -->
+  <footer class="footer">
+    <div class="container">
+      <p>Blackterz &copy; 2026 — Hecho con 💪</p>
+    </div>
+  </footer>
+
+  <!-- ============================================================
+  SCRIPT PRINCIPAL
+  ============================================================ -->
+  <!-- Vinculamos el JavaScript. La etiqueta va al FINAL del body
+       para asegurar que cuando se ejecute, todos los elementos
+       HTML ya existen en el DOM y no tire "null is not an object".
+       Si pusieramos esto en el <head>, getElementById fallaría
+       porque el div aún no existe. -->
+  <script src="/app.js"></script>
+</body>
+</html>

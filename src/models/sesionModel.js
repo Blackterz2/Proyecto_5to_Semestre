@@ -41,10 +41,10 @@ const pool = require('../config/db');
 //   ejercicios: [
 //     {
 //       ejercicio_id: 1,
-//       observaciones: "Dolor en hombro",
+//       notas: "Dolor en hombro",
 //       series: [
-//         { numero_serie: 1, repeticiones: 10, peso: 50, rpe: 8 },
-//         { numero_serie: 2, repeticiones: 8,  peso: 55, rpe: 9 }
+//         { numero_serie: 1, repeticiones: 10, peso: 50 },
+//         { numero_serie: 2, repeticiones: 8,  peso: 55 }
 //       ]
 //     }
 //   ]
@@ -106,26 +106,36 @@ async function guardarSesionCompleta(datosSesion) {
       // ============================================================
       // 4a. INSERTAR EL EJERCICIO DE LA SESIÓN
       // ============================================================
+      // ============================================================
+      // NOTA: La tabla real tiene la columna "notas", no
+      // "observaciones". Siempre verificá con DESCRIBE table
+      // antes de escribir queries.
+      // ============================================================
       const [resultadoEjercicio] = await connection.execute(
-        `INSERT INTO sesion_ejercicios (sesion_id, ejercicio_id, observaciones)
+        `INSERT INTO sesion_ejercicios (sesion_id, ejercicio_id, notas)
          VALUES (?, ?, ?)`,
-        [sesionId, ejercicio.ejercicio_id, ejercicio.observaciones || null]
+        [sesionId, ejercicio.ejercicio_id, ejercicio.notas || null]
       );
       const sesionEjercicioId = resultadoEjercicio.insertId;
 
       // ============================================================
       // 4b. ITERAR Y INSERTAR LAS SERIES DE ESTE EJERCICIO
       // ============================================================
+      // ============================================================
+      // NOTA: La tabla real sesion_series tiene:
+      //   numero_serie, repeticiones, peso, tiempo_descanso,
+      //   duracion_segundos, completada, notas
+      // NO tiene columna "rpe". Siempre verificá con DESCRIBE.
+      // ============================================================
       for (const serie of ejercicio.series) {
         await connection.execute(
-          `INSERT INTO sesion_series (sesion_ejercicio_id, numero_serie, repeticiones, peso, rpe)
-           VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO sesion_series (sesion_ejercicio_id, numero_serie, repeticiones, peso)
+           VALUES (?, ?, ?, ?)`,
           [
             sesionEjercicioId,
             serie.numero_serie,
             serie.repeticiones,
             serie.peso || 0,
-            serie.rpe || null,
           ]
         );
       }

@@ -65,7 +65,8 @@ async function obtenerRutinaConEjercicios(rutinaId) {
       e.descripcion AS ejercicio_descripcion,
       er.orden,
       er.series,
-      er.repeticiones
+      er.repeticiones,
+      er.peso
     FROM rutinas r
     LEFT JOIN ejercicios_rutinas er ON r.id = er.rutina_id
     LEFT JOIN ejercicios e ON er.ejercicio_id = e.id
@@ -146,6 +147,7 @@ async function obtenerRutinaConEjercicios(rutinaId) {
         orden:        fila.orden,
         series:       fila.series,
         repeticiones: fila.repeticiones,
+        peso:         fila.peso,
       });
     }
   }
