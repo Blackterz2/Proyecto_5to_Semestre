@@ -21,3 +21,15 @@ node_modules/
 # ============================================================
 .DS_Store
 Thumbs.db
+
+# ============================================================
+# HERRAMIENTAS DE IA
+# ============================================================
+# .atl/ contiene configuracion local de OpenCode/Gentle AI.
+# No debe subirse al repo porque es especifico del dev.
+.atl/
+
+# ============================================================
+# ARCHIVOS ACCIDENTALES
+# ============================================================
+nul
