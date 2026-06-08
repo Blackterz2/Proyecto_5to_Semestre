@@ -155,5 +155,138 @@ async function obtenerRutinaConEjercicios(rutinaId) {
   return rutina;
 }
 
-// Exportamos la función para que el controlador la use
-module.exports = { obtenerRutinaConEjercicios };
+// ============================================================
+// contarRutinasUsuario(usuario_id)
+// ============================================================
+// Cuenta cuántas rutinas tiene un usuario. Se usa ANTES de
+// insertar una nueva para verificar el límite gratuito (4).
+//
+// El usuario_id viene del JWT, NO del body.
+// Esto previene que un usuario cree rutinas en nombre de otro.
+async function contarRutinasUsuario(usuario_id) {
+  const sql = 'SELECT COUNT(*) AS total FROM rutinas WHERE usuario_id = ?';
+  const [rows] = await pool.execute(sql, [usuario_id]);
+  return rows[0].total;
+}
+
+// ============================================================
+// insertarRutina(usuario_id, nombre, descripcion)
+// ============================================================
+// Crea una nueva rutina para el usuario.
+//
+// Parámetros:
+//   usuario_id  - ID del dueño (viene del JWT, no del body)
+//   nombre      - Nombre de la rutina (ej: "Full Body")
+//   descripcion - Descripción opcional
+//
+// Retorna:
+//   { id, nombre, descripcion, usuario_id }
+async function insertarRutina(usuario_id, nombre, descripcion) {
+  const sql = `
+    INSERT INTO rutinas (usuario_id, nombre, descripcion)
+    VALUES (?, ?, ?)
+  `;
+  const [resultado] = await pool.execute(sql, [
+    usuario_id,
+    nombre,
+    descripcion || null,
+  ]);
+
+  return {
+    id: resultado.insertId,
+    nombre,
+    descripcion: descripcion || null,
+    usuario_id,
+  };
+}
+
+// ============================================================
+// obtenerRutinasPorUsuario(usuario_id)
+// ============================================================
+// Devuelve TODAS las rutinas de un usuario (SIN ejercicios).
+// Cada rutina incluye id, nombre, descripcion y cantidad de
+// ejercicios asociados.
+//
+// ¿Por qué SIN ejercicios?
+//   Porque la lista del dashboard solo muestra el nombre y
+//   una descripción breve. Los ejercicios se cargan DESPUÉS
+//   cuando el usuario hace clic en una rutina (GET /:id).
+//
+//   Esto evita hacer JOINs pesados para la lista general.
+async function obtenerRutinasPorUsuario(usuario_id) {
+  const sql = `
+    SELECT
+      r.id,
+      r.nombre,
+      r.descripcion,
+      r.created_at,
+      (SELECT COUNT(*) FROM ejercicios_rutinas WHERE rutina_id = r.id) AS total_ejercicios
+    FROM rutinas r
+    WHERE r.usuario_id = ?
+    ORDER BY r.created_at DESC
+  `;
+
+  const [rows] = await pool.execute(sql, [usuario_id]);
+  return rows;
+}
+
+// ============================================================
+// insertarEjerciciosEnRutina(rutinaId, ejercicios_ids)
+// ============================================================
+// Asigna ejercicios a una rutina insertando filas en la tabla
+// pivote `ejercicios_rutinas`.
+//
+// ¿Cómo funciona el orden?
+//   - Primero cuenta cuántos ejercicios ya tiene la rutina
+//     (por si ya tenía algunos asignados antes).
+//   - El primer ejercicio nuevo arranca en orden = total_existente + 1
+//   - Esto evita conflictos de orden aunque se llame varias veces.
+//
+// Parámetros:
+//   rutinaId       (number) - ID de la rutina
+//   ejercicios_ids (number[]) - Array de IDs de ejercicios a asignar
+async function insertarEjerciciosEnRutina(rutinaId, ejercicios_ids) {
+  if (!ejercicios_ids || ejercicios_ids.length === 0) return;
+
+  // ============================================================
+  // 1. CONTAR EJERCICIOS EXISTENTES
+  // ============================================================
+  // Necesitamos saber cuál es el próximo número de orden disponible.
+  // Si la rutina ya tiene 3 ejercicios, el próximo orden será 4.
+  const [countRows] = await pool.execute(
+    'SELECT COUNT(*) AS total FROM ejercicios_rutinas WHERE rutina_id = ?',
+    [rutinaId]
+  );
+  let orden = countRows[0].total + 1;
+
+  // ============================================================
+  // 2. INSERTAR CADA EJERCICIO
+  // ============================================================
+  // Por cada ID, insertamos una fila con su orden correspondiente.
+  // Usamos Promise.all para lanzar TODAS las inserciones en
+  // paralelo (más rápido que esperar una por una).
+  //
+  // ⚠️ NOTA: No usamos una transacción completa porque si alguna
+  //    inserción falla, las anteriores ya se insertaron y la
+  //    rutina ya se creó. En un sistema crítico haríamos todo
+  //    en una transacción, pero acá es aceptable porque el
+  //    INSERT de la rutina ya se confirmó.
+  const promises = ejercicios_ids.map((ejercicioId) => {
+    return pool.execute(
+      `INSERT INTO ejercicios_rutinas (rutina_id, ejercicio_id, orden)
+       VALUES (?, ?, ?)`,
+      [rutinaId, ejercicioId, orden++]
+    );
+  });
+
+  await Promise.all(promises);
+}
+
+// Exportamos las funciones para que el controlador las use
+module.exports = {
+  obtenerRutinaConEjercicios,
+  contarRutinasUsuario,
+  insertarRutina,
+  obtenerRutinasPorUsuario,
+  insertarEjerciciosEnRutina,
+};

@@ -5,7 +5,7 @@
 // completos, y se los pasa al modelo para que los guarde
 // usando una transacción SQL.
 
-const { guardarSesionCompleta } = require('../models/sesionModel');
+const { guardarSesionCompleta, obtenerHistorialUsuario } = require('../models/sesionModel');
 
 // ============================================================
 // crearSesion(req, res) - POST /api/sesiones
@@ -15,7 +15,37 @@ async function crearSesion(req, res) {
     const datosSesion = req.body;
 
     // ============================================================
-    // 1. VALIDACIÓN DE DATOS MÍNIMOS
+    // 1. EXTRAER USUARIO DEL TOKEN (NO del body)
+    // ============================================================
+    // ⚠️ SEGURIDAD: Esto es CRÍTICO. Nunca confíes en el
+    //    usuario_id que viene en el body de la request.
+    //
+    // ¿QUÉ ES EL ID SPOOFING?
+    // -----------------------
+    // Si el controlador usara req.body.usuario_id, un atacante
+    // podría interceptar la petición y CAMBIAR el usuario_id
+    // para crear sesiones en nombre de OTRO usuario.
+    //
+    // Ejemplo de ataque:
+    //   Body original:  { usuario_id: 1, ejercicios: [...] }
+    //   Body modificado: { usuario_id: 999, ejercicios: [...] }
+    //   → Sin protección, la sesión se crea para el usuario 999
+    //
+    // Al leer el usuario_id del JWT (req.usuario.usuario_id),
+    // nos aseguramos de que:
+    //   1. El usuario está autenticado (el middleware ya verificó
+    //      el token antes de llegar acá).
+    //   2. El ID es AUTÉNTICO — está firmado por el servidor
+    //      y no puede ser modificado por el cliente.
+    //   3. Ignoramos cualquier usuario_id que venga en el body.
+    //
+    // req.usuario es inyectado por authMiddleware.verificarToken()
+    // y contiene el payload decodificado del JWT:
+    //   { usuario_id: 1, iat: ..., exp: ... }
+    const usuario_id = req.usuario.usuario_id;
+
+    // ============================================================
+    // 2. VALIDACIÓN DE DATOS MÍNIMOS
     // ============================================================
     // Antes de tocar la base de datos, verificamos que el
     // cliente nos haya mandado TODO lo necesario.
@@ -29,14 +59,6 @@ async function crearSesion(req, res) {
       return res.status(400).json({
         status: 'error',
         message: 'El cuerpo de la petición es requerido',
-      });
-    }
-
-    // ¿Tiene usuario?
-    if (!datosSesion.usuario_id) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'El campo usuario_id es requerido',
       });
     }
 
@@ -84,8 +106,16 @@ async function crearSesion(req, res) {
     }
 
     // ============================================================
-    // 2. LLAMAR AL MODELO (GUARDAR CON TRANSACCIÓN)
+    // 3. ASIGNAR USUARIO REAL (DESDE JWT) Y LLAMAR AL MODELO
     // ============================================================
+    // Sobreescribimos datosSesion.usuario_id con el ID real
+    // que viene del token. El modelo lee datosSesion.usuario_id
+    // así que si el cliente mandó un usuario_id DISTINTO en
+    // el body, queda pisado por el verdadero.
+    //
+    // Esto es la defensa contra ID Spoofing: el modelo NUNCA
+    // ve el usuario_id que mandó el cliente, SOLO el del JWT.
+    datosSesion.usuario_id = usuario_id;
     const resultado = await guardarSesionCompleta(datosSesion);
 
     // ============================================================
@@ -139,4 +169,38 @@ async function crearSesion(req, res) {
   }
 }
 
-module.exports = { crearSesion };
+// ============================================================
+// getHistorial(req, res) - GET /api/sesiones
+// ============================================================
+// Devuelve el historial de entrenamientos del usuario autenticado.
+//
+// FLUJO:
+//   1. req.usuario.usuario_id viene del JWT (authMiddleware ya
+//      verificó el token antes de llegar acá).
+//   2. Llamamos al modelo que ejecuta un SELECT con JOIN.
+//   3. Devolvemos el array de sesiones.
+//
+// SEGURIDAD:
+//   - usuario_id viene del JWT, NO de un parámetro de URL ni del body.
+//   - Es IMPOSIBLE que un usuario vea el historial de otro aunque
+//     modifique la request, porque el ID es el del token firmado.
+async function getHistorial(req, res) {
+  try {
+    const usuario_id = req.usuario.usuario_id;
+    const historial = await obtenerHistorialUsuario(usuario_id);
+
+    res.status(200).json({
+      status: 'ok',
+      data: historial,
+    });
+
+  } catch (error) {
+    console.error('Error al obtener historial:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error al obtener el historial',
+    });
+  }
+}
+
+module.exports = { crearSesion, getHistorial };

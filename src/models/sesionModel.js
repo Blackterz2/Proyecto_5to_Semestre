@@ -187,4 +187,50 @@ async function guardarSesionCompleta(datosSesion) {
   }
 }
 
-module.exports = { guardarSesionCompleta };
+// ============================================================
+// obtenerHistorialUsuario(usuario_id)
+// ============================================================
+// Devuelve el historial de entrenamientos de un usuario.
+//
+// ¿QUÉ DEVUELVE?
+// --------------
+// Un array de objetos, cada uno representando UNA sesión
+// de entrenamiento que el usuario completó:
+//
+//   [
+//     {
+//       id: 5,
+//       fecha: "2026-06-07",
+//       notas: "Buena sesión",
+//       created_at: "2026-06-07T21:30:00.000Z",
+//       rutina_nombre: "Full Body"   ← viene del JOIN con rutinas
+//     }
+//   ]
+//
+// ¿POR QUÉ UN LEFT JOIN?
+// ----------------------
+// LEFT JOIN asegura que la sesión se muestra aunque la rutina
+// haya sido eliminada (raro, pero posible). Sin JOIN, esas
+// sesiones no aparecerían y el usuario las "perdería".
+//
+// Ordenamos por fecha DESC + id DESC para que la sesión más
+// RECIENTE aparezca PRIMERO.
+async function obtenerHistorialUsuario(usuario_id) {
+  const sql = `
+    SELECT
+      se.id,
+      se.fecha,
+      se.notas,
+      se.created_at,
+      r.nombre AS rutina_nombre
+    FROM sesiones_entrenamiento se
+    LEFT JOIN rutinas r ON se.rutina_id = r.id
+    WHERE se.usuario_id = ?
+    ORDER BY se.fecha DESC, se.id DESC
+  `;
+
+  const [rows] = await pool.execute(sql, [usuario_id]);
+  return rows;
+}
+
+module.exports = { guardarSesionCompleta, obtenerHistorialUsuario };

@@ -34,6 +34,9 @@ const sesionRouter = require('./routes/sesionRoutes');
 // Importamos las rutas de autenticación (Hito 6 - JWT + bcrypt)
 const authRouter = require('./routes/authRoutes');
 
+// Importamos las rutas de ejercicios (Hito 11 Parte 3 - Catálogo de ejercicios)
+const ejercicioRouter = require('./routes/ejercicioRoutes');
+
 // ============================================================
 // 2. CONFIGURACIÓN DE EXPRESS
 // ============================================================
@@ -67,7 +70,13 @@ app.use(express.json());
 //                        /public/styles.css → http://localhost:3000/styles.css
 //
 // Sin esto, el navegador no podría cargar el CSS ni el JS del frontend.
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.avif')) {
+      res.setHeader('Content-Type', 'image/avif');
+    }
+  },
+}));
 
 // ============================================================
 // 4. RUTAS
@@ -93,6 +102,10 @@ app.use('/api/sesiones', sesionRouter);
 //   router.post('/register') → POST /api/auth/register
 //   router.post('/login')    → POST /api/auth/login
 app.use('/api/auth', authRouter);
+
+// Montamos el router de ejercicios en /api/ejercicios.
+// Ejemplo: router.get('/') → GET /api/ejercicios
+app.use('/api/ejercicios', ejercicioRouter);
 
 // ============================================================
 // 5. MIDDLEWARE DE ERRORES

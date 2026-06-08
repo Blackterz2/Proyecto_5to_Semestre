@@ -4,24 +4,23 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Blackterz - Rutina</title>
-
-  <!-- ============================================================
-  HOJA DE ESTILOS
-  ============================================================ -->
-  <!-- Vinculamos el CSS. Sin esta línea, el navegador no sabe
-       qué estilos aplicar y la página se ve en blanco y negro
-       con el estilo por defecto del navegador. -->
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
 
   <!-- ============================================================
-  HEADER - Encabezado de la página
+  HEADER
   ============================================================ -->
   <header class="header">
     <div class="container">
-      <h1 class="app-title">🏋️ Blackterz</h1>
-      <p class="app-subtitle">Rutina de entrenamiento</p>
+      <div class="header-row">
+        <div>
+          <h1 class="app-title">🏋️ Blackterz</h1>
+          <p class="app-subtitle">Gestión de entrenamiento 💪</p>
+        </div>
+        <!-- Botón de Cerrar Sesión (oculto hasta que el usuario se loguee) -->
+        <button id="btn-logout" class="btn-logout hidden">Cerrar sesión</button>
+      </div>
     </div>
   </header>
 
@@ -30,19 +29,231 @@
   ============================================================ -->
   <main class="container">
 
-    <!-- TÍTULO DE LA RUTINA (se llena desde app.js) -->
-    <div id="titulo-rutina" class="rutina-header">
-      <h2 class="rutina-nombre">Cargando rutina...</h2>
-      <p class="rutina-descripcion"></p>
+    <!-- ============================================================
+    FORMULARIO DE LOGIN
+    ============================================================ -->
+    <section id="login-section" class="login-section">
+      <div class="login-card">
+        <h2 class="login-title">Iniciar sesión</h2>
+        <p class="login-subtitle">Ingresá tus credenciales para ver tu rutina</p>
+
+        <form id="login-form" class="login-form">
+          <!-- Campo de email -->
+          <div class="form-group">
+            <label for="login-email" class="form-label">Email</label>
+            <input
+              type="email"
+              id="login-email"
+              class="form-input"
+              placeholder="tu@email.com"
+              required
+              autocomplete="email"
+            />
+          </div>
+
+          <!-- Campo de contraseña -->
+          <div class="form-group">
+            <label for="login-password" class="form-label">Contraseña</label>
+            <input
+              type="password"
+              id="login-password"
+              class="form-input"
+              placeholder="••••••"
+              required
+              autocomplete="current-password"
+            />
+          </div>
+
+          <!-- Mensaje de error (oculto por defecto) -->
+          <div id="login-error" class="login-error hidden">
+            ❌ Credenciales incorrectas
+          </div>
+
+          <!-- Botón de envío -->
+          <button type="submit" id="btn-login" class="btn-login">
+            Entrar
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ============================================================
+    CONTENIDO PRIVADO (oculto hasta login exitoso)
+    ============================================================ -->
+    <div id="app-content" class="hidden">
+
+      <!-- ============================================================
+      NAVEGACIÓN: pestañas para cambiar entre vistas
+      ============================================================ -->
+      <nav class="nav-tabs">
+        <button id="btn-tab-historial" class="nav-tab nav-tab--active">
+          📋 Historial
+        </button>
+        <button id="btn-tab-entrenar" class="nav-tab">
+          🏋️ Entrenar
+        </button>
+      </nav>
+
+      <!-- ============================================================
+      VISTA: DASHBOARD / HISTORIAL
+      ============================================================ -->
+      <div id="dashboard-view">
+
+        <!-- ============================================================
+        SECCIÓN: MIS RUTINAS
+        ============================================================ -->
+        <section class="dashboard-section">
+          <div class="dashboard-header">
+            <h2>🏋️ Mis Rutinas</h2>
+            <p class="dashboard-subtitle">
+              Seleccioná una rutina para entrenar o creá una nueva.
+            </p>
+          </div>
+
+          <!-- Grilla de rutinas que llena JS -->
+          <div id="rutinas-container" class="rutinas-grid">
+            <div class="loading">Cargando rutinas...</div>
+          </div>
+
+          <!-- Mensaje de límite alcanzado (oculto por defecto) -->
+          <div id="limite-msg" class="limite-msg hidden">
+            ⚠️ Has alcanzado el límite de 4 rutinas personalizadas.
+          </div>
+        </section>
+
+        <hr class="divider" />
+
+        <!-- ============================================================
+        SECCIÓN: HISTORIAL
+        ============================================================ -->
+        <section class="dashboard-section">
+          <div class="dashboard-header">
+            <h2>📋 Mi Historial</h2>
+            <p class="dashboard-subtitle">
+              Tus entrenamientos registrados.
+            </p>
+          </div>
+
+          <!-- Contenedor donde JS dibuja la tabla del historial -->
+          <div id="historial-container" class="historial-container">
+            <div class="loading">Cargando historial</div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ============================================================
+      MODAL: CREAR NUEVA RUTINA
+      ============================================================ -->
+      <div id="modal-overlay" class="modal-overlay hidden">
+        <div class="modal-content modal-ejercicios-lg">
+          <div class="modal-header">
+            <h3>➕ Nueva Rutina</h3>
+            <button id="btn-modal-cerrar" class="modal-cerrar">&times;</button>
+          </div>
+            <div class="modal-body">
+            <div class="form-group">
+              <label for="input-nombre-rutina" class="form-label">
+                Nombre de la rutina
+              </label>
+              <input
+                type="text"
+                id="input-nombre-rutina"
+                class="form-input"
+                placeholder="Ej: Full Body, Push, Piernas..."
+                maxlength="255"
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- ============================================================
+            LISTA DE EJERCICIOS (UX Correcciones Pt2)
+            ============================================================ -->
+            <div class="form-group">
+              <label class="form-label">Ejercicios</label>
+              <p class="form-hint">Seleccioná los ejercicios para esta rutina</p>
+              <input
+                type="text"
+                id="buscador-modal-ejercicios"
+                class="buscador-ejercicios"
+                placeholder="🔍 Buscar por nombre o grupo muscular..."
+                autocomplete="off"
+              />
+              <div id="modal-ejercicios" class="ejercicio-list">
+                <div class="loading" style="padding: 14px 0;">Cargando ejercicios...</div>
+              </div>
+            </div>
+
+            <div id="modal-error" class="login-error hidden"></div>
+          </div>
+          <div class="modal-actions">
+            <button id="btn-modal-cancelar" class="btn-logout">Cancelar</button>
+            <button id="btn-modal-crear" class="btn-login" style="width: auto; padding: 12px 24px;">
+              Crear rutina
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+      VISTA: ENTRENAR (Rutina con ejercicios)
+      ============================================================ -->
+      <div id="entrenar-view" class="hidden">
+
+        <div id="titulo-rutina" class="rutina-header">
+          <h2 class="rutina-nombre">Cargando rutina...</h2>
+          <p class="rutina-descripcion"></p>
+        </div>
+
+        <hr class="divider" />
+
+        <div id="contenedor-ejercicios" class="ejercicios-grid"></div>
+
+        <!-- ============================================================
+        PANEL: AGREGAR EJERCICIO EXTRA (UX Correcciones Pt2)
+        ============================================================ -->
+        <!-- Lista visual de todos los ejercicios del catálogo.
+             Cada fila tiene: placeholder de imagen, nombre + categoría,
+             y botón "+" para inyectarlo al entrenamiento activo. -->
+        <div id="extra-ejercicio-wrapper" class="extra-ejercicio-wrapper hidden">
+          <hr class="divider" />
+          <div class="extra-ejercicio-header">
+            <h3 class="extra-ejercicio-titulo">Agregar ejercicio extra</h3>
+          </div>
+          <input
+            type="text"
+            id="buscador-extra-ejercicios"
+            class="buscador-ejercicios"
+            placeholder="🔍 Buscar por nombre o grupo muscular..."
+            autocomplete="off"
+          />
+          <div id="lista-ejercicios-extra" class="ejercicio-list">
+            <div class="loading" style="padding: 14px 0;">Cargando ejercicios...</div>
+          </div>
+        </div>
+
+        <!-- ============================================================
+        BOTONES DE ACCIÓN (Finalizar / Descartar)
+        ============================================================ -->
+        <!-- Aparecen SOLO cuando la rutina se cargó correctamente.
+             Al hacer clic, recolecta los valores de los inputs y
+             los envía al endpoint POST /api/sesiones. -->
+        <div class="acciones-entreno hidden" id="acciones-entreno">
+          <div class="acciones-entreno-row">
+
+            <button id="btn-finalizar" class="btn-finalizar">
+              🏁 Finalizar Entrenamiento
+            </button>
+
+            <button id="btn-descartar" class="btn-descartar">
+              🗑️ Descartar Entreno
+            </button>
+
+          </div>
+        </div>
+
+      </div>
+
     </div>
-
-    <!-- SEPARADOR -->
-    <hr class="divider" />
-
-    <!-- CONTENEDOR DE TARJETAS DE EJERCICIOS -->
-    <!-- app.js va a inyectar aquí las tarjetas generadas
-         dinámicamente con document.createElement() -->
-    <div id="contenedor-ejercicios" class="ejercicios-grid"></div>
 
   </main>
 
@@ -55,14 +266,6 @@
     </div>
   </footer>
 
-  <!-- ============================================================
-  SCRIPT PRINCIPAL
-  ============================================================ -->
-  <!-- Vinculamos el JavaScript. La etiqueta va al FINAL del body
-       para asegurar que cuando se ejecute, todos los elementos
-       HTML ya existen en el DOM y no tire "null is not an object".
-       Si pusieramos esto en el <head>, getElementById fallaría
-       porque el div aún no existe. -->
   <script src="/app.js"></script>
 </body>
 </html>

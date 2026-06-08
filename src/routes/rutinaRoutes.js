@@ -16,13 +16,34 @@
 //     qué URL ejecuta qué función. Sin sorpresas.
 
 const { Router } = require('express');
-const { getRutina } = require('../controllers/rutinaController');
+const { getRutina, crearRutina, getRutinasDelUsuario } = require('../controllers/rutinaController');
+const { verificarToken } = require('../middlewares/authMiddleware');
 
 const router = Router();
 
 // ============================================================
+// GET / - Listar todas las rutinas del usuario autenticado
+// ============================================================
+// 🔒 Protegida con JWT: devuelve SOLO las rutinas del usuario
+// del token. Cada rutina incluye id, nombre y total de ejercicios.
+router.get('/', verificarToken, getRutinasDelUsuario);
+
+// ============================================================
+// POST /crear - Crear una nueva rutina personalizada
+// ============================================================
+// 🔒 Protegida con JWT: solo usuarios autenticados pueden crear rutinas
+//
+// El usuario_id se extrae del TOKEN, no del body (anti-spoofing).
+// Si el usuario ya tiene 4 rutinas, responde con 403 Forbidden.
+//
+// Body esperado: { nombre: "Full Body", descripcion: "..." }
+router.post('/crear', verificarToken, crearRutina);
+
+// ============================================================
 // GET /:id - Obtener una rutina con sus ejercicios
 // ============================================================
+// 🔒 Protegida con JWT: solo usuarios autenticados pueden ver rutinas
+//
 // :id es un parámetro DINÁMICO de la URL. Express captura
 // cualquier valor que venga en esa posición y lo pone en
 // req.params.id.
@@ -34,6 +55,6 @@ const router = Router();
 //
 // El controlador se encarga de validar que sea un número.
 // El router SOLO enruta.
-router.get('/:id', getRutina);
+router.get('/:id', verificarToken, getRutina);
 
 module.exports = router;

@@ -16,7 +16,7 @@
 
 // Importamos el modelo. Notá que importamos UNA FUNCIÓN
 // específica, no todo el modelo. Claridad ante todo.
-const { obtenerRutinaConEjercicios } = require('../models/rutinaModel');
+const { obtenerRutinaConEjercicios, contarRutinasUsuario, insertarRutina, obtenerRutinasPorUsuario, insertarEjerciciosEnRutina } = require('../models/rutinaModel');
 
 // ============================================================
 // getRutina(req, res) - GET /api/rutinas/:id
@@ -99,5 +99,139 @@ async function getRutina(req, res) {
   }
 }
 
-// Exportamos la función para que la ruta la use
-module.exports = { getRutina };
+// ============================================================
+// crearRutina(req, res) - POST /api/rutinas/crear
+// ============================================================
+// Crea una nueva rutina para el usuario autenticado.
+//
+// ⚠️ SEGURIDAD: El usuario_id se extrae EXCLUSIVAMENTE del
+//    token JWT (req.usuario.usuario_id). NO del body.
+//
+// ¿POR QUÉ ES IMPORTANTE?
+// -----------------------
+// Si usáramos req.body.usuario_id, un atacante podría crear
+// rutinas en nombre de OTRO usuario con solo cambiar el ID
+// en el body. Eso se llama ID SPOOFING.
+//
+// Al leer el ID del JWT:
+//   1. El usuario está autenticado (el middleware ya verificó
+//      el token).
+//   2. El ID es AUTÉNTICO (está firmado por el servidor).
+//   3. Ignoramos CUALQUIER usuario_id que venga en el body.
+//
+// LÍMITE GRATUITO (REGLAS DE NEGOCIO):
+//   - Un usuario puede tener HASTA 4 rutinas.
+//   - Si ya tiene 4, responde con 403 Forbidden.
+//   - El conteo se hace en CADA request de creación.
+//
+// ¿Por qué contar en cada request?
+//   Porque entre que el frontend muestra el botón y el usuario
+//   hace clic, otro proceso (o pestaña) podría haber creado
+//   una rutina. Contar al momento de crear evita race conditions.
+async function crearRutina(req, res) {
+  try {
+    // ============================================================
+    // 1. EXTRAER USUARIO DEL TOKEN (NUNCA del body)
+    // ============================================================
+    const usuario_id = req.usuario.usuario_id;
+
+    // ============================================================
+    // 2. EXTRAER CAMPOS DEL BODY
+    // ============================================================
+    // ejercicios_ids es OPCIONAL. Si viene, debe ser un array.
+    const { nombre, descripcion, ejercicios_ids } = req.body;
+
+    // ============================================================
+    // 3. VALIDAR DATOS MÍNIMOS
+    // ============================================================
+    if (!nombre || typeof nombre !== 'string' || nombre.trim().length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'El nombre de la rutina es obligatorio',
+      });
+    }
+
+    // ============================================================
+    // 4. VERIFICAR LÍMITE GRATUITO (MÁXIMO 4 RUTINAS)
+    // ============================================================
+    // Contamos cuántas rutinas tiene el usuario actualmente.
+    // Si ya llegó al límite, rechazamos la creación.
+    const total = await contarRutinasUsuario(usuario_id);
+
+    if (total >= 4) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Has alcanzado el límite de 4 rutinas personalizadas.',
+      });
+    }
+
+    // ============================================================
+    // 4. INSERTAR LA RUTINA
+    // ============================================================
+    const rutina = await insertarRutina(
+      usuario_id,
+      nombre.trim(),
+      descripcion ? descripcion.trim() : null
+    );
+
+    // ============================================================
+    // 5. ASIGNAR EJERCICIOS (SI VIERON EN EL BODY)
+    // ============================================================
+    // ejercicios_ids es un array opcional. Si está presente,
+    // insertamos las filas en ejercicios_rutinas con orden
+    // automático incremental.
+    //
+    // Validación: debe ser un array con al menos un ID numérico.
+    if (ejercicios_ids && Array.isArray(ejercicios_ids) && ejercicios_ids.length > 0) {
+      // Filtramos solo IDs numéricos válidos para prevenir inyección
+      const idsValidos = ejercicios_ids.filter(id => Number.isFinite(Number(id)));
+      if (idsValidos.length > 0) {
+        await insertarEjerciciosEnRutina(rutina.id, idsValidos);
+      }
+    }
+
+    // ============================================================
+    // 6. RESPONDER CON 201 CREATED
+    // ============================================================
+    res.status(201).json({
+      status: 'ok',
+      message: 'Rutina creada exitosamente',
+      data: rutina,
+    });
+
+  } catch (error) {
+    console.error('Error al crear rutina:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error interno del servidor',
+    });
+  }
+}
+
+// ============================================================
+// getRutinasDelUsuario(req, res) - GET /api/rutinas/
+// ============================================================
+// Devuelve TODAS las rutinas del usuario autenticado (sin
+// ejercicios — solo el listado para el dashboard).
+//
+// El usuario_id se extrae del JWT como siempre.
+async function getRutinasDelUsuario(req, res) {
+  try {
+    const usuario_id = req.usuario.usuario_id;
+    const rutinas = await obtenerRutinasPorUsuario(usuario_id);
+
+    res.json({
+      status: 'ok',
+      data: rutinas,
+    });
+  } catch (error) {
+    console.error('Error al listar rutinas:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error al obtener las rutinas',
+    });
+  }
+}
+
+// Exportamos las funciones para que la ruta las use
+module.exports = { getRutina, crearRutina, getRutinasDelUsuario };
