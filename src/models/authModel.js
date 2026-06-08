@@ -53,7 +53,7 @@ async function crearUsuario(nombre, email, passwordHash) {
 //    al cliente (en la respuesta HTTP solo va id, nombre, email).
 async function buscarUsuarioPorEmail(email) {
   const [rows] = await pool.execute(
-    `SELECT id, nombre, email, password, created_at
+    `SELECT id, nombre, email, password, created_at, activo
      FROM usuarios WHERE email = ?`,
     [email]
   );

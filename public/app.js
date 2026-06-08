@@ -22,11 +22,17 @@ const btnLogin        = document.getElementById('btn-login');
 const btnLogout       = document.getElementById('btn-logout');
 
 // Navegación entre vistas
-const btnTabHistorial = document.getElementById('btn-tab-historial');
+const btnTabRutinas   = document.getElementById('btn-tab-rutinas');
+const btnTabPerfil    = document.getElementById('btn-tab-perfil');
 const btnTabEntrenar  = document.getElementById('btn-tab-entrenar');
-const dashboardView   = document.getElementById('dashboard-view');
+const rutinasView     = document.getElementById('rutinas-view');
+const perfilView      = document.getElementById('perfil-view');
 const entrenarView    = document.getElementById('entrenar-view');
 const historialContainer = document.getElementById('historial-container');
+const perfilEmail     = document.getElementById('perfil-email');
+const perfilNombre    = document.getElementById('perfil-nombre');
+const perfilAvatarImg = document.getElementById('perfil-avatar-img');
+const avatarInput     = document.getElementById('avatar-input');
 
 // Dashboard: rutinas
 const rutinasContainer = document.getElementById('rutinas-container');
@@ -56,6 +62,26 @@ const listaEjerciciosExtra   = document.getElementById('lista-ejercicios-extra')
 // Checkboxes del modal (Hito 11 Parte 3)
 const modalEjercicios        = document.getElementById('modal-ejercicios');
 
+// Temporizador de entrenamiento
+const temporizadorEl   = document.getElementById('temporizador');
+const timerDisplay     = document.getElementById('timer-display');
+
+// Registro de usuarios
+const loginWrapper        = document.getElementById('login-form-wrapper');
+const registerWrapper     = document.getElementById('register-form-wrapper');
+const regForm             = document.getElementById('register-form');
+const regNombre           = document.getElementById('reg-nombre');
+const regEmail            = document.getElementById('reg-email');
+const regPassword         = document.getElementById('reg-password');
+const btnRegister         = document.getElementById('btn-register');
+const regError            = document.getElementById('register-error');
+const regSuccess          = document.getElementById('register-success');
+const toggleToRegister    = document.getElementById('toggle-to-register');
+const toggleToLogin       = document.getElementById('toggle-to-login');
+
+// Eliminación de cuenta
+const btnEliminarCuenta   = document.getElementById('btn-eliminar-cuenta');
+
 // ============================================================
 // ESTADO DE LA APLICACIÓN
 // ============================================================
@@ -63,6 +89,16 @@ const modalEjercicios        = document.getElementById('modal-ejercicios');
 // en la vista "Entrenar". Se actualiza cada vez que el usuario
 // hace clic en una rutina del dashboard.
 let rutinaActualId = 1;
+
+// Temporizador de entrenamiento activo
+let intervaloReloj = null;
+let horaInicio     = null;
+let segundosTranscurridos = 0;
+
+// Estado de entrenamiento activo
+let entrenamientoActivo = false;
+let rutinaActivaNombre  = '';
+let pendingRutinaId     = null;
 
 // Catálogo de ejercicios (se carga UNA vez desde la API)
 // Se usa para:
@@ -86,6 +122,91 @@ const buscadorExtra  = document.getElementById('buscador-extra-ejercicios');
 // a iniciar sesión.
 function getToken() {
   return localStorage.getItem('token');
+}
+
+// ============================================================
+// extraerEmailDelToken()
+// ============================================================
+// Decodifica el payload del JWT (parte central) sin verificar
+// la firma — solo lectura, seguro para frontend.
+// Devuelve el email si existe, o null si no hay token.
+function extraerEmailDelToken() {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.email || null;
+  } catch {
+    return null;
+  }
+}
+
+function extraerNombreDelToken() {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.nombre || null;
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================
+// TEMPORIZADOR DE ENTRENAMIENTO
+// ============================================================
+
+function formatearTiempo(segundos) {
+  const m = String(Math.floor(segundos / 60)).padStart(2, '0');
+  const s = String(segundos % 60).padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function mostrarFloatingTimer() {
+  const ft = document.getElementById('floating-timer');
+  if (ft) ft.classList.remove('hidden');
+  const ftd = document.getElementById('floating-timer-display');
+  if (ftd) ftd.textContent = formatearTiempo(segundosTranscurridos);
+}
+
+function ocultarFloatingTimer() {
+  const ft = document.getElementById('floating-timer');
+  if (ft) ft.classList.add('hidden');
+}
+
+function iniciarTemporizador() {
+  detenerTemporizador();
+
+  segundosTranscurridos = 0;
+  horaInicio = Date.now();
+  if (timerDisplay) timerDisplay.textContent = '00:00';
+  if (temporizadorEl) temporizadorEl.classList.remove('hidden');
+  // La burbuja flotante NO se muestra acá — aparece solo cuando
+  // el usuario sale de la vista Entrenar con un training activo.
+
+  intervaloReloj = setInterval(() => {
+    segundosTranscurridos = Math.floor((Date.now() - horaInicio) / 1000);
+    const display = formatearTiempo(segundosTranscurridos);
+    if (timerDisplay) timerDisplay.textContent = display;
+    // Sincronizar burbuja flotante
+    const ftd = document.getElementById('floating-timer-display');
+    if (ftd) ftd.textContent = display;
+  }, 1000);
+}
+
+function detenerTemporizador() {
+  if (intervaloReloj) {
+    clearInterval(intervaloReloj);
+    intervaloReloj = null;
+  }
+  if (temporizadorEl) temporizadorEl.classList.add('hidden');
+  ocultarFloatingTimer();
+  return segundosTranscurridos;
+}
+
+function obtenerMinutosTranscurridos() {
+  // Redondea al minuto más cercano
+  return Math.round(segundosTranscurridos / 60);
 }
 
 // ============================================================
@@ -280,6 +401,28 @@ async function renderizarCheckboxesEnModal(terminoBusqueda) {
 }
 
 // ============================================================
+// mostrarAuthLogin() / mostrarAuthRegister()
+// ============================================================
+// Alternan entre el formulario de login y registro dentro
+// de la pantalla de autenticación.
+function mostrarAuthLogin() {
+  registerWrapper?.classList.add('hidden');
+  loginWrapper?.classList.remove('hidden');
+  // Limpiar campos y mensajes del registro
+  regForm?.reset();
+  regError?.classList.add('hidden');
+  regSuccess?.classList.add('hidden');
+}
+
+function mostrarAuthRegister() {
+  loginWrapper?.classList.add('hidden');
+  registerWrapper?.classList.remove('hidden');
+  // Limpiar errores previos
+  regError?.classList.add('hidden');
+  regSuccess?.classList.add('hidden');
+}
+
+// ============================================================
 // mostrarLogin() / mostrarRutina()
 // ============================================================
 // Controlan qué se ve en pantalla intercambiando la clase
@@ -288,10 +431,12 @@ function mostrarLogin() {
   loginSection?.classList.remove('hidden');
   appContent?.classList.add('hidden');
   btnLogout?.classList.add('hidden');
+  // Resetear a la vista de login (por si estaba en registro)
+  mostrarAuthLogin();
 }
 
 // ============================================================
-// mostrarApp() — Muestra el contenido privado (dashboard + rutina)
+// mostrarApp() — Muestra el contenido privado (rutinas / perfil / entrenar)
 // ============================================================
 function mostrarApp() {
   loginSection?.classList.add('hidden');
@@ -300,25 +445,44 @@ function mostrarApp() {
 }
 
 // ============================================================
-// mostrarDashboard() / mostrarEntrenar() — Cambiar entre vistas
+// mostrarVistaRutinas() / mostrarVistaPerfil() / mostrarEntrenar()
 // ============================================================
-// Estas funciones controlan QUÉ vista se muestra dentro de
-// app-content. Una a la vez (la otra queda oculta).
-//
+// Controlan QUÉ vista se muestra dentro de app-content.
+// Una a la vez (las otras quedan ocultas).
 // También actualizan la pestaña activa en la navegación.
 
-function mostrarDashboard() {
-  dashboardView?.classList.remove('hidden');
+function mostrarVistaRutinas() {
+  rutinasView?.classList.remove('hidden');
+  perfilView?.classList.add('hidden');
   entrenarView?.classList.add('hidden');
-  btnTabHistorial?.classList.add('nav-tab--active');
+  btnTabRutinas?.classList.add('nav-tab--active');
+  btnTabPerfil?.classList.remove('nav-tab--active');
   btnTabEntrenar?.classList.remove('nav-tab--active');
+  // Si hay entrenamiento activo, mostrar burbuja flotante
+  if (entrenamientoActivo) mostrarFloatingTimer();
+}
+
+function mostrarVistaPerfil() {
+  rutinasView?.classList.add('hidden');
+  perfilView?.classList.remove('hidden');
+  entrenarView?.classList.add('hidden');
+  btnTabRutinas?.classList.remove('nav-tab--active');
+  btnTabPerfil?.classList.add('nav-tab--active');
+  btnTabEntrenar?.classList.remove('nav-tab--active');
+  // Si hay entrenamiento activo, mostrar burbuja flotante
+  if (entrenamientoActivo) mostrarFloatingTimer();
 }
 
 function mostrarEntrenar() {
-  dashboardView?.classList.add('hidden');
+  rutinasView?.classList.add('hidden');
+  perfilView?.classList.add('hidden');
   entrenarView?.classList.remove('hidden');
-  btnTabHistorial?.classList.remove('nav-tab--active');
+  btnTabRutinas?.classList.remove('nav-tab--active');
+  btnTabPerfil?.classList.remove('nav-tab--active');
   btnTabEntrenar?.classList.add('nav-tab--active');
+  // Al entrar a la vista Entrenar, ocultar burbuja flotante
+  // (el cronómetro grande ya está visible ahí)
+  ocultarFloatingTimer();
 }
 
 // ============================================================
@@ -344,9 +508,6 @@ async function cargarRutina(rutinaId) {
   // Actualizamos el ID de la rutina actual
   const id = rutinaId || rutinaActualId;
 
-  // Limpiar el buscador de ejercicios extra al cargar rutina
-  if (buscadorExtra) buscadorExtra.value = '';
-
   // ============================================================
   // ESTADO RESIDUAL: si no hay rutina seleccionada
   // ============================================================
@@ -371,6 +532,28 @@ async function cargarRutina(rutinaId) {
   }
 
   rutinaActualId = id;
+
+  // ============================================================
+  // LIMPIAR ESTADO RESIDUAL DE LA VISTA ANTERIOR
+  // ============================================================
+  // Cada vez que se carga una rutina (incluso la misma), hay que
+  // limpiar el DOM, los botones de acción y el panel extra para
+  // que no queden residuos de la rutina anterior.
+  //
+  // Esto evita el bug donde, al cambiar de una rutina con
+  // ejercicios a una sin, el panel extra y los botones de acción
+  // quedaban visibles del estado anterior.
+  if (contenedorEl) contenedorEl.innerHTML = '';
+  if (nombreEl) nombreEl.textContent = 'Cargando rutina...';
+  if (descripcionEl) descripcionEl.textContent = '';
+  if (accionesEntreno) accionesEntreno.classList.add('hidden');
+  if (extraEjercicioWrapper) extraEjercicioWrapper.classList.add('hidden');
+  if (listaEjerciciosExtra) {
+    listaEjerciciosExtra.innerHTML = '<div class="loading" style="padding: 14px 0;">Cargando ejercicios...</div>';
+  }
+  if (buscadorExtra) buscadorExtra.value = '';
+  // Detener temporizador de la sesión anterior
+  detenerTemporizador();
 
   try {
     // ============================================================
@@ -426,8 +609,17 @@ async function cargarRutina(rutinaId) {
     nombreEl.textContent = rutina.nombre || 'Rutina sin nombre';
     if (rutina.descripcion) descripcionEl.textContent = rutina.descripcion;
 
+    // Marcar entrenamiento como activo e iniciar temporizador
+    entrenamientoActivo = true;
+    rutinaActivaNombre = rutina.nombre || 'Rutina';
+    iniciarTemporizador();
+
     if (!rutina.ejercicios || rutina.ejercicios.length === 0) {
       contenedorEl.innerHTML = '<div class="empty">Esta rutina no tiene ejercicios asignados aún 🤷</div>';
+      // Mostrar acciones de entreno y panel de ejercicios extra
+      // para que el usuario pueda agregar ejercicios sobre la marcha
+      if (accionesEntreno) accionesEntreno.classList.remove('hidden');
+      poblarListaEjerciciosExtra(buscadorExtra?.value);
       return;
     }
 
@@ -642,12 +834,49 @@ async function cargarHistorial() {
     return;
   }
 
-  // Mostramos la app y la vista dashboard
+  // Mostramos la app y la vista perfil
   mostrarApp();
-  mostrarDashboard();
+  mostrarVistaPerfil();
 
-  // Cargamos las rutinas del usuario en paralelo con el historial
-  cargarRutinasUsuario();
+  // ============================================================
+  // CARGAR DATOS DEL PERFIL (nombre, email, avatar) desde el server
+  // ============================================================
+  try {
+    const respPerfil = await fetch('/api/usuarios/me', {
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+
+    if (respPerfil.ok) {
+      const perfilData = await respPerfil.json();
+      const usuario = perfilData.data;
+
+      if (perfilNombre) {
+        perfilNombre.textContent = usuario.nombre || 'Usuario';
+      }
+      if (perfilEmail) {
+        perfilEmail.textContent = usuario.email || 'usuario@email.com';
+      }
+      if (perfilAvatarImg && usuario.avatar_url) {
+        perfilAvatarImg.src = usuario.avatar_url;
+        perfilAvatarImg.classList.remove('hidden');
+      } else if (perfilAvatarImg) {
+        // Sin foto: limpiar src para que no herede la foto
+        // del usuario anterior (estado residual entre sesiones)
+        perfilAvatarImg.src = '';
+      }
+    } else {
+      // Fallback al JWT si falla el endpoint
+      const email = extraerEmailDelToken();
+      if (perfilEmail) perfilEmail.textContent = email || 'usuario@email.com';
+      if (perfilNombre) perfilNombre.textContent = extraerNombreDelToken() || 'Usuario';
+      if (perfilAvatarImg) perfilAvatarImg.src = ''; // limpiar foto residual
+    }
+  } catch {
+    // Si hay error de red, usar datos del JWT como fallback
+    if (perfilEmail) perfilEmail.textContent = extraerEmailDelToken() || 'usuario@email.com';
+    if (perfilNombre) perfilNombre.textContent = extraerNombreDelToken() || 'Usuario';
+    if (perfilAvatarImg) perfilAvatarImg.src = ''; // limpiar foto residual
+  }
 
   try {
     const respuesta = await fetch('/api/sesiones', {
@@ -717,6 +946,7 @@ async function cargarHistorial() {
           <tr>
             <th>Fecha</th>
             <th>Rutina</th>
+            <th>Duración</th>
             <th>Notas</th>
           </tr>
         </thead>
@@ -741,11 +971,16 @@ async function cargarHistorial() {
 
       const rutinaNombre = sesion.rutina_nombre || 'Rutina';
       const notas = sesion.notas || '—';
+      let duracionTexto = '—';
+      if (sesion.duracion_minutos) {
+        duracionTexto = `⏱️ ${sesion.duracion_minutos} min`;
+      }
 
       html += `
         <tr class="clickable-row">
           <td>📅 ${fechaFormateada}</td>
           <td><span class="rutina-badge">${rutinaNombre}</span></td>
+          <td>${duracionTexto}</td>
           <td>${notas}</td>
         </tr>
       `;
@@ -853,11 +1088,17 @@ async function cargarRutinasUsuario() {
     document.querySelectorAll('.rutina-card[data-rutina-id]').forEach((card) => {
       card.addEventListener('click', () => {
         const id = Number(card.dataset.rutinaId);
-        if (id) {
-          // Guardamos el ID y cargamos la rutina
-          rutinaActualId = id;
-          cargarRutina(id);
+        if (!id) return;
+
+        // Si ya hay un entrenamiento activo, mostrar conflicto
+        if (entrenamientoActivo) {
+          mostrarConflictModal(id);
+          return;
         }
+
+        // Guardamos el ID y cargamos la rutina
+        rutinaActualId = id;
+        cargarRutina(id);
       });
     });
 
@@ -1023,6 +1264,69 @@ inputNombreRutina?.addEventListener('keydown', (e) => {
 });
 
 // ============================================================
+// MODAL DE CONFLICTO: entrenamiento activo
+// ============================================================
+function mostrarConflictModal(nuevaRutinaId) {
+  pendingRutinaId = nuevaRutinaId;
+
+  const overlay = document.getElementById('modal-conflict-overlay');
+  const nombreEl = document.getElementById('conflict-rutina-nombre');
+  const tiempoEl = document.getElementById('conflict-tiempo');
+
+  if (nombreEl) nombreEl.textContent = rutinaActivaNombre || 'Rutina activa';
+  if (tiempoEl) tiempoEl.textContent = '⏱️ ' + formatearTiempo(segundosTranscurridos);
+  if (overlay) overlay.classList.remove('hidden');
+}
+
+// Cerrar conflicto con Escape (mismo comportamiento que el modal de creación)
+document.addEventListener('keydown', (e) => {
+  const overlay = document.getElementById('modal-conflict-overlay');
+  if (e.key === 'Escape' && overlay && !overlay.classList.contains('hidden')) {
+    overlay.classList.add('hidden');
+    pendingRutinaId = null;
+  }
+});
+
+// Clic fuera del modal de conflicto lo cierra
+document.getElementById('modal-conflict-overlay')?.addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) {
+    e.currentTarget.classList.add('hidden');
+    pendingRutinaId = null;
+  }
+});
+
+// Botón: Descartar y empezar nueva
+document.getElementById('conflict-btn-descartar')?.addEventListener('click', () => {
+  const overlay = document.getElementById('modal-conflict-overlay');
+  if (overlay) overlay.classList.add('hidden');
+
+  const id = pendingRutinaId;
+  pendingRutinaId = null;
+
+  if (id) {
+    limpiarVistaEntrenamiento();
+    cargarRutina(id);
+  }
+});
+
+// Botón: Volver al entrenamiento actual
+document.getElementById('conflict-btn-cancelar')?.addEventListener('click', () => {
+  const overlay = document.getElementById('modal-conflict-overlay');
+  if (overlay) overlay.classList.add('hidden');
+  pendingRutinaId = null;
+
+  // Navegar al entrenamiento activo
+  mostrarApp();
+  mostrarEntrenar();
+});
+
+// Clic en la burbuja flotante → ir al entrenamiento activo
+document.getElementById('floating-timer')?.addEventListener('click', () => {
+  mostrarApp();
+  mostrarEntrenar();
+});
+
+// ============================================================
 // MANEJAR LOGIN (submit del formulario)
 // ============================================================
 loginForm?.addEventListener('submit', async (e) => {
@@ -1075,10 +1379,11 @@ loginForm?.addEventListener('submit', async (e) => {
     loginForm.reset();
 
     // ============================================================
-    // CARGAR EL HISTORIAL (que a su vez oculta el login y
-    // muestra el dashboard con los entrenamientos anteriores)
+    // MOSTRAR RUTINAS DESPUÉS DEL LOGIN
     // ============================================================
-    await cargarHistorial();
+    mostrarApp();
+    mostrarVistaRutinas();
+    await cargarRutinasUsuario();
 
   } catch (error) {
     console.error('Error de red:', error);
@@ -1094,20 +1399,230 @@ loginForm?.addEventListener('submit', async (e) => {
 });
 
 // ============================================================
+// MANEJAR REGISTRO (submit del formulario)
+// ============================================================
+async function manejarRegistro(e) {
+  e.preventDefault();
+
+  // Ocultar mensajes previos
+  regError?.classList.add('hidden');
+  regSuccess?.classList.add('hidden');
+
+  const nombre   = regNombre?.value.trim() || '';
+  const email    = regEmail?.value.trim();
+  const password = regPassword?.value;
+
+  // Validación rápida del lado del cliente
+  if (!email || !password) {
+    if (regError) {
+      regError.textContent = '❌ Completá todos los campos obligatorios';
+      regError.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (password.length < 6) {
+    if (regError) {
+      regError.textContent = '❌ La contraseña debe tener al menos 6 caracteres';
+      regError.classList.remove('hidden');
+    }
+    return;
+  }
+
+  // Deshabilitar botón mientras se procesa
+  if (btnRegister) {
+    btnRegister.disabled = true;
+    btnRegister.textContent = 'Creando cuenta...';
+  }
+
+  try {
+    const respuesta = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, email, password }),
+    });
+
+    const datos = await respuesta.json();
+
+    if (!respuesta.ok) {
+      if (regError) {
+        regError.textContent = '❌ ' + (datos.message || 'Error al registrarse');
+        regError.classList.remove('hidden');
+      }
+      return;
+    }
+
+    // Registro exitoso → mostrar mensaje y volver al login
+    if (regSuccess) {
+      regSuccess.classList.remove('hidden');
+    }
+
+    // Después de 2 segundos, volver al formulario de login
+    setTimeout(() => {
+      mostrarAuthLogin();
+    }, 2000);
+
+  } catch (error) {
+    console.error('Error de red:', error);
+    if (regError) {
+      regError.textContent = '❌ Error de conexión con el servidor';
+      regError.classList.remove('hidden');
+    }
+  } finally {
+    if (btnRegister) {
+      btnRegister.disabled = false;
+      btnRegister.textContent = 'Crear cuenta';
+    }
+  }
+}
+
+// ============================================================
+// EVENT LISTENERS DE AUTENTICACIÓN
+// ============================================================
+
+// Toggle entre login y registro
+toggleToRegister?.addEventListener('click', mostrarAuthRegister);
+toggleToLogin?.addEventListener('click', mostrarAuthLogin);
+
+// Submit del formulario de registro
+regForm?.addEventListener('submit', manejarRegistro);
+
+// ============================================================
+// SUBIR AVATAR (foto de perfil)
+// ============================================================
+avatarInput?.addEventListener('change', async () => {
+  const file = avatarInput.files?.[0];
+  if (!file) return;
+
+  const token = getToken();
+  if (!token) {
+    mostrarLogin();
+    return;
+  }
+
+  // Validar tipo de archivo
+  const tiposPermitidos = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!tiposPermitidos.includes(file.type)) {
+    alert('❌ Solo se permiten imágenes (JPG, PNG, GIF, WebP)');
+    avatarInput.value = '';
+    return;
+  }
+
+  // Validar tamaño (2MB max)
+  if (file.size > 2 * 1024 * 1024) {
+    alert('❌ La imagen no puede superar los 2MB');
+    avatarInput.value = '';
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const respuesta = await fetch('/api/usuarios/avatar', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        // NO poner Content-Type — fetch lo setea solo con el boundary
+      },
+      body: formData,
+    });
+
+    const datos = await respuesta.json();
+
+    if (!respuesta.ok) {
+      alert('❌ ' + (datos.message || 'Error al subir la foto'));
+      return;
+    }
+
+    // Actualizar la imagen en tiempo real
+    if (perfilAvatarImg && datos.data?.avatar_url) {
+      perfilAvatarImg.src = datos.data.avatar_url;
+      perfilAvatarImg.classList.remove('hidden');
+    }
+  } catch (error) {
+    console.error('Error al subir avatar:', error);
+    alert('❌ Error de conexión con el servidor');
+  } finally {
+    avatarInput.value = '';
+  }
+});
+
+// ============================================================
+// ELIMINAR CUENTA (Soft Delete)
+// ============================================================
+btnEliminarCuenta?.addEventListener('click', async () => {
+  // ============================================================
+  // CONFIRMACIÓN ESTRICTA
+  // ============================================================
+  // Usamos prompt() para que el usuario tenga que escribir
+  // "ELIMINAR" explícitamente. Esto evita clics accidentales
+  // y es más seguro que un confirm() simple.
+  const confirmacion = prompt(
+    '⚠️ ¿Estás seguro?\n\n' +
+    'Esta acción desactivará tu cuenta permanentemente.\n' +
+    'Tus rutinas e historial se conservarán, pero no podrás iniciar sesión.\n\n' +
+    'Escribí "ELIMINAR" (en mayúsculas) para confirmar.'
+  );
+
+  // Si el usuario cancela el prompt o no escribe exactamente
+  // "ELIMINAR", no hacemos nada.
+  if (confirmacion !== 'ELIMINAR') return;
+
+  const token = getToken();
+  if (!token) {
+    mostrarLogin();
+    return;
+  }
+
+  try {
+    const respuesta = await fetch('/api/usuarios/me', {
+      method: 'DELETE',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!respuesta.ok) {
+      const datos = await respuesta.json();
+      alert('❌ ' + (datos.message || 'Error al eliminar la cuenta'));
+      return;
+    }
+
+    // Cuenta desactivada → limpiar sesión y volver al login
+    localStorage.removeItem('token');
+    mostrarLogin();
+    alert('✅ Cuenta desactivada correctamente. Gracias por usar Blackterz.');
+
+  } catch (error) {
+    console.error('Error de red:', error);
+    alert('❌ Error de conexión con el servidor');
+  }
+});
+
+// ============================================================
 // CERRAR SESIÓN (LOGOUT)
 // ============================================================
 btnLogout?.addEventListener('click', () => {
-  // Borramos el token del localStorage
-  localStorage.removeItem('token');
-
-  // Limpiamos el contenido de la rutina
+  // Limpiar estado de entrenamiento activo (si lo hay)
+  // Sin esto, al volver a iniciar sesión queda entrenamientoActivo = true,
+  // rutinaActualId apunta a un ID viejo, y el timer sigue corriendo en background.
+  entrenamientoActivo = false;
+  rutinaActivaNombre = '';
+  detenerTemporizador();
+  rutinaActualId = null;
   if (contenedorEl) contenedorEl.innerHTML = '';
   if (nombreEl) nombreEl.textContent = 'Cargando rutina...';
   if (descripcionEl) descripcionEl.textContent = '';
-
-  // Ocultamos los botones de acción de entrenamiento
   if (accionesEntreno) accionesEntreno.classList.add('hidden');
   if (extraEjercicioWrapper) extraEjercicioWrapper.classList.add('hidden');
+
+  // Limpiar avatar para que no herede la foto del usuario anterior
+  if (perfilAvatarImg) perfilAvatarImg.src = '';
+
+  // Borramos el token del localStorage
+  localStorage.removeItem('token');
 
   // Mostramos el login
   mostrarLogin();
@@ -1341,6 +1856,11 @@ listaEjerciciosExtra?.addEventListener('click', (e) => {
   card.appendChild(seriesInputsDiv);
   card.appendChild(btnSerieWrapper);
 
+  // Si el contenedor tenía un mensaje vacío (rutina sin ejercicios),
+  // removerlo antes de agregar el primer ejercicio extra
+  const emptyMsg = contenedorEl?.querySelector('.empty');
+  if (emptyMsg) emptyMsg.remove();
+
   // Insertar la tarjeta DENTRO del contenedor principal
   // (ANTES se insertaba fuera y por eso no funcionaba ni el
   //  botón eliminar ni el filtro anti-duplicados)
@@ -1359,17 +1879,26 @@ listaEjerciciosExtra?.addEventListener('click', (e) => {
 //
 // Cuando hace clic en "Entrenar", cargamos la rutina actual
 // con los ejercicios e inputs.
-btnTabHistorial?.addEventListener('click', () => {
-  // Si ya estamos en historial, no hacemos nada
-  if (!dashboardView?.classList.contains('hidden')) return;
+btnTabRutinas?.addEventListener('click', () => {
+  if (!rutinasView?.classList.contains('hidden')) return;
+  mostrarVistaRutinas();
+  cargarRutinasUsuario();
+});
 
+btnTabPerfil?.addEventListener('click', () => {
+  if (!perfilView?.classList.contains('hidden')) return;
   cargarHistorial();
 });
 
 btnTabEntrenar?.addEventListener('click', () => {
-  // Si ya estamos en entrenar, no hacemos nada
   if (!entrenarView?.classList.contains('hidden')) return;
-
+  // Si ya hay un entrenamiento activo, solo mostrar la vista
+  // sin reiniciar el temporizador ni recargar la rutina.
+  if (entrenamientoActivo) {
+    mostrarApp();
+    mostrarEntrenar();
+    return;
+  }
   cargarRutina();
 });
 
@@ -1508,6 +2037,7 @@ btnFinalizar?.addEventListener('click', async () => {
     rutina_id: rutinaActualId,
     fecha: hoy,
     ejercicios: ejercicios,
+    duracion_minutos: obtenerMinutosTranscurridos(),
   };
 
   // ============================================================
@@ -1623,6 +2153,13 @@ btnDescartar?.addEventListener('click', () => {
 //   - Navega a la vista Dashboard
 //   - Refresca el historial desde el servidor
 function limpiarVistaEntrenamiento() {
+  // Marcar entrenamiento como inactivo
+  entrenamientoActivo = false;
+  rutinaActivaNombre = '';
+
+  // Detener el temporizador de entrenamiento
+  detenerTemporizador();
+
   // Resetear estado global de entrenamiento activo
   // Al poner rutinaActualId = null, la pestaña "Entrenar" va a
   // pedir que selecciones una rutina en vez de mostrar datos viejos.
@@ -1644,9 +2181,9 @@ function limpiarVistaEntrenamiento() {
   if (nombreEl) nombreEl.textContent = 'Cargando rutina...';
   if (descripcionEl) descripcionEl.textContent = '';
 
-  // Navegar al Dashboard y refrescar datos
-  mostrarDashboard();
-  cargarHistorial();
+  // Navegar a Rutinas y refrescar datos
+  mostrarVistaRutinas();
+  cargarRutinasUsuario();
 }
 
 // ============================================================
@@ -1707,7 +2244,9 @@ function limpiarInputs() {
 document.addEventListener('DOMContentLoaded', () => {
   const token = getToken();
   if (token) {
-    cargarHistorial();
+    mostrarApp();
+    mostrarVistaRutinas();
+    cargarRutinasUsuario();
   } else {
     mostrarLogin();
   }

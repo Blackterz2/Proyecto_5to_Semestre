@@ -158,6 +158,24 @@ async function login(req, res) {
     }
 
     // ============================================================
+    // 2.5 VERIFICAR QUE LA CUENTA ESTÉ ACTIVA (Hito 12.6)
+    // ============================================================
+    // Soft delete: si activo = FALSE, el usuario no puede
+    // iniciar sesión aunque tenga credenciales válidas.
+    //
+    // ¿Por qué 403 y no 401?
+    //   401 = "no estás autenticado" (credenciales faltantes/inválidas)
+    //   403 = "estás autenticado pero no tenés permiso"
+    //   En este caso el usuario EXISTE, su contraseña es correcta,
+    //   pero su cuenta está desactivada → 403 Forbidden.
+    if (!usuario.activo) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Esta cuenta ha sido desactivada',
+      });
+    }
+
+    // ============================================================
     // 3. COMPARAR CONTRASEÑA CON BCRYPT
     // ============================================================
     // bcrypt.compare() toma la contraseña en texto plano y
@@ -210,6 +228,8 @@ async function login(req, res) {
     // Datos sensibles (como passwords) NUNCA van en el payload.
     const payload = {
       usuario_id: usuario.id,
+      nombre:     usuario.nombre,
+      email:      usuario.email,
     };
 
     const secret = process.env.JWT_SECRET;

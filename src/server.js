@@ -37,6 +37,9 @@ const authRouter = require('./routes/authRoutes');
 // Importamos las rutas de ejercicios (Hito 11 Parte 3 - Catálogo de ejercicios)
 const ejercicioRouter = require('./routes/ejercicioRoutes');
 
+// Importamos las rutas de usuario (Hito 12.6 - Soft delete de cuenta)
+const usuarioRouter = require('./routes/usuarioRoutes');
+
 // ============================================================
 // 2. CONFIGURACIÓN DE EXPRESS
 // ============================================================
@@ -106,6 +109,10 @@ app.use('/api/auth', authRouter);
 // Montamos el router de ejercicios en /api/ejercicios.
 // Ejemplo: router.get('/') → GET /api/ejercicios
 app.use('/api/ejercicios', ejercicioRouter);
+
+// Montamos el router de usuario en /api/usuarios.
+// Ejemplo: router.delete('/me') → DELETE /api/usuarios/me
+app.use('/api/usuarios', usuarioRouter);
 
 // ============================================================
 // 5. MIDDLEWARE DE ERRORES

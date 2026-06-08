@@ -81,13 +81,14 @@ async function guardarSesionCompleta(datosSesion) {
     // devuelve después de un INSERT. Contiene el valor del
     // AUTO_INCREMENT que se generó para esa fila.
     const [resultadoSesion] = await connection.execute(
-      `INSERT INTO sesiones_entrenamiento (usuario_id, rutina_id, fecha, notas)
-       VALUES (?, ?, ?, ?)`,
+      `INSERT INTO sesiones_entrenamiento (usuario_id, rutina_id, fecha, notas, duracion_minutos)
+       VALUES (?, ?, ?, ?, ?)`,
       [
         datosSesion.usuario_id,
         datosSesion.rutina_id,
         datosSesion.fecha,
         datosSesion.notas || null,
+        datosSesion.duracion_minutos || null,
       ]
     );
     const sesionId = resultadoSesion.insertId;
@@ -221,6 +222,7 @@ async function obtenerHistorialUsuario(usuario_id) {
       se.id,
       se.fecha,
       se.notas,
+      se.duracion_minutos,
       se.created_at,
       r.nombre AS rutina_nombre
     FROM sesiones_entrenamiento se

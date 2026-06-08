@@ -30,50 +30,123 @@
   <main class="container">
 
     <!-- ============================================================
-    FORMULARIO DE LOGIN
+    PANTALLA DE AUTENTICACIÓN (Login / Registro)
     ============================================================ -->
     <section id="login-section" class="login-section">
       <div class="login-card">
-        <h2 class="login-title">Iniciar sesión</h2>
-        <p class="login-subtitle">Ingresá tus credenciales para ver tu rutina</p>
 
-        <form id="login-form" class="login-form">
-          <!-- Campo de email -->
-          <div class="form-group">
-            <label for="login-email" class="form-label">Email</label>
-            <input
-              type="email"
-              id="login-email"
-              class="form-input"
-              placeholder="tu@email.com"
-              required
-              autocomplete="email"
-            />
-          </div>
+        <!-- ============================================================
+        FORMULARIO DE LOGIN
+        ============================================================ -->
+        <div id="login-form-wrapper">
 
-          <!-- Campo de contraseña -->
-          <div class="form-group">
-            <label for="login-password" class="form-label">Contraseña</label>
-            <input
-              type="password"
-              id="login-password"
-              class="form-input"
-              placeholder="••••••"
-              required
-              autocomplete="current-password"
-            />
-          </div>
+          <h2 class="login-title">Iniciar sesión</h2>
+          <p class="login-subtitle">Ingresá tus credenciales para ver tu rutina</p>
 
-          <!-- Mensaje de error (oculto por defecto) -->
-          <div id="login-error" class="login-error hidden">
-            ❌ Credenciales incorrectas
-          </div>
+          <form id="login-form" class="login-form">
+            <div class="form-group">
+              <label for="login-email" class="form-label">Email</label>
+              <input
+                type="email"
+                id="login-email"
+                class="form-input"
+                placeholder="tu@email.com"
+                required
+                autocomplete="email"
+              />
+            </div>
 
-          <!-- Botón de envío -->
-          <button type="submit" id="btn-login" class="btn-login">
-            Entrar
-          </button>
-        </form>
+            <div class="form-group">
+              <label for="login-password" class="form-label">Contraseña</label>
+              <input
+                type="password"
+                id="login-password"
+                class="form-input"
+                placeholder="••••••"
+                required
+                autocomplete="current-password"
+              />
+            </div>
+
+            <div id="login-error" class="login-error hidden">
+              ❌ Credenciales incorrectas
+            </div>
+
+            <button type="submit" id="btn-login" class="btn-login">
+              Entrar
+            </button>
+          </form>
+
+          <p class="auth-toggle-link">
+            ¿No tenés cuenta? <span id="toggle-to-register" class="auth-toggle-btn">Registrate aquí</span>
+          </p>
+
+        </div>
+
+        <!-- ============================================================
+        FORMULARIO DE REGISTRO (oculto por defecto)
+        ============================================================ -->
+        <div id="register-form-wrapper" class="hidden">
+
+          <h2 class="login-title">Crear cuenta</h2>
+          <p class="login-subtitle">Registrate para gestionar tus rutinas</p>
+
+          <form id="register-form" class="login-form">
+            <div class="form-group">
+              <label for="reg-nombre" class="form-label">Nombre <span class="form-label-optional">(opcional)</span></label>
+              <input
+                type="text"
+                id="reg-nombre"
+                class="form-input"
+                placeholder="Tu nombre"
+                autocomplete="name"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="reg-email" class="form-label">Email</label>
+              <input
+                type="email"
+                id="reg-email"
+                class="form-input"
+                placeholder="tu@email.com"
+                required
+                autocomplete="email"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="reg-password" class="form-label">Contraseña</label>
+              <input
+                type="password"
+                id="reg-password"
+                class="form-input"
+                placeholder="Mínimo 6 caracteres"
+                required
+                minlength="6"
+                autocomplete="new-password"
+              />
+            </div>
+
+            <div id="register-error" class="login-error hidden">
+              ❌ Error al registrarse
+            </div>
+
+            <div id="register-success" class="register-success hidden">
+              ✅ Cuenta creada con éxito. Redirigiendo al inicio de sesión...
+            </div>
+
+            <button type="submit" id="btn-register" class="btn-login">
+              Crear cuenta
+            </button>
+          </form>
+
+          <p class="auth-toggle-link">
+            ¿Ya tenés cuenta? <span id="toggle-to-login" class="auth-toggle-btn">Iniciá sesión</span>
+          </p>
+
+        </div>
+
       </div>
     </section>
 
@@ -86,22 +159,21 @@
       NAVEGACIÓN: pestañas para cambiar entre vistas
       ============================================================ -->
       <nav class="nav-tabs">
-        <button id="btn-tab-historial" class="nav-tab nav-tab--active">
-          📋 Historial
+        <button id="btn-tab-rutinas" class="nav-tab nav-tab--active">
+          🏋️ Rutinas
+        </button>
+        <button id="btn-tab-perfil" class="nav-tab">
+          👤 Perfil
         </button>
         <button id="btn-tab-entrenar" class="nav-tab">
-          🏋️ Entrenar
+          🎯 Entrenar
         </button>
       </nav>
 
       <!-- ============================================================
       VISTA: DASHBOARD / HISTORIAL
       ============================================================ -->
-      <div id="dashboard-view">
-
-        <!-- ============================================================
-        SECCIÓN: MIS RUTINAS
-        ============================================================ -->
+      <div id="rutinas-view">
         <section class="dashboard-section">
           <div class="dashboard-header">
             <h2>🏋️ Mis Rutinas</h2>
@@ -109,36 +181,71 @@
               Seleccioná una rutina para entrenar o creá una nueva.
             </p>
           </div>
-
-          <!-- Grilla de rutinas que llena JS -->
           <div id="rutinas-container" class="rutinas-grid">
             <div class="loading">Cargando rutinas...</div>
           </div>
-
-          <!-- Mensaje de límite alcanzado (oculto por defecto) -->
           <div id="limite-msg" class="limite-msg hidden">
             ⚠️ Has alcanzado el límite de 4 rutinas personalizadas.
           </div>
         </section>
+      </div>
 
-        <hr class="divider" />
+      <!-- ============================================================
+      VISTA: PERFIL (info usuario + placeholder progreso + historial)
+      ============================================================ -->
+      <div id="perfil-view" class="hidden">
+
+        <!-- ============================================================
+        SECCIÓN: INFO DEL USUARIO
+        ============================================================ -->
+        <section class="perfil-section">
+          <div class="perfil-header">
+            <label class="perfil-avatar" id="avatar-label" title="Hacé clic para cambiar tu foto">
+              <img id="perfil-avatar-img" class="perfil-avatar-img" src="" alt="Avatar" />
+              <span class="perfil-avatar-overlay">📷</span>
+              <input type="file" id="avatar-input" accept="image/*" />
+            </label>
+            <div class="perfil-info">
+              <h2 id="perfil-nombre" class="perfil-nombre">cargando...</h2>
+              <p id="perfil-email" class="perfil-email">cargando...</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================================
+        SECCIÓN: PLACEHOLDER DE PROGRESO
+        ============================================================ -->
+        <section class="perfil-section">
+          <div id="progreso-placeholder" class="progreso-caja">
+            <span class="progreso-icon">📊</span>
+            <p>Próximamente: Gráficos de Progreso y Récords Personales</p>
+          </div>
+        </section>
 
         <!-- ============================================================
         SECCIÓN: HISTORIAL
         ============================================================ -->
-        <section class="dashboard-section">
-          <div class="dashboard-header">
-            <h2>📋 Mi Historial</h2>
-            <p class="dashboard-subtitle">
-              Tus entrenamientos registrados.
-            </p>
-          </div>
-
-          <!-- Contenedor donde JS dibuja la tabla del historial -->
+        <section class="perfil-section">
+          <h2 class="perfil-section-title">📋 Mi Historial</h2>
           <div id="historial-container" class="historial-container">
             <div class="loading">Cargando historial</div>
           </div>
         </section>
+
+        <!-- ============================================================
+        SECCIÓN: ZONA DE PELIGRO (Soft Delete de cuenta)
+        ============================================================ -->
+        <section class="perfil-section">
+          <div class="danger-zone">
+            <h3 class="danger-title">🚨 Zona de Peligro</h3>
+            <p class="danger-desc">
+              Esta acción desactivará tu cuenta. Tus rutinas e historial se conservan,
+              pero no vas a poder iniciar sesión hasta que un administrador la reactive.
+            </p>
+            <button id="btn-eliminar-cuenta" class="btn-danger">Eliminar mi cuenta</button>
+          </div>
+        </section>
+
       </div>
 
       <!-- ============================================================
@@ -200,8 +307,15 @@
       <div id="entrenar-view" class="hidden">
 
         <div id="titulo-rutina" class="rutina-header">
-          <h2 class="rutina-nombre">Cargando rutina...</h2>
-          <p class="rutina-descripcion"></p>
+          <div class="rutina-header-row">
+            <div>
+              <h2 class="rutina-nombre">Cargando rutina...</h2>
+              <p class="rutina-descripcion"></p>
+            </div>
+            <div id="temporizador" class="temporizador hidden">
+              <span id="timer-display" class="timer-display">00:00</span>
+            </div>
+          </div>
         </div>
 
         <hr class="divider" />
@@ -256,6 +370,38 @@
     </div>
 
   </main>
+
+  <!-- ============================================================
+  BURBUJA FLOTANTE: entrenamiento activo
+  ============================================================ -->
+  <div id="floating-timer" class="floating-timer hidden">
+    <span class="floating-timer-icon">⏱️</span>
+    <span id="floating-timer-display" class="floating-timer-display">00:00</span>
+  </div>
+
+  <!-- ============================================================
+  MODAL DE CONFLICTO: entrenamiento activo al cambiar de rutina
+  ============================================================ -->
+  <div id="modal-conflict-overlay" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 460px;">
+      <div class="modal-header">
+        <h3>⚠️ Entrenamiento activo</h3>
+      </div>
+      <div class="modal-body" style="text-align: center; padding: 20px 0;">
+        <p style="margin-bottom: 8px;">Ya tenés un entrenamiento en curso:</p>
+        <p id="conflict-rutina-nombre" style="font-size: 1.2rem; font-weight: 700; color: var(--accent);"></p>
+        <p id="conflict-tiempo" style="color: var(--text-secondary); margin-top: 6px; font-size: 1rem;">⏱️ 00:00</p>
+      </div>
+      <div class="modal-actions" style="flex-direction: column; gap: 8px;">
+        <button id="conflict-btn-descartar" class="btn-login" style="width: 100%; background: var(--accent);">
+          🗑️ Descartar y empezar nueva
+        </button>
+        <button id="conflict-btn-cancelar" class="btn-logout" style="width: 100%; padding: 12px; text-align: center;">
+          ↩️ Volver al entrenamiento actual
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- ============================================================
   FOOTER
