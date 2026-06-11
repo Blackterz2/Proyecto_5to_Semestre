@@ -1,0 +1,2 @@
+USE fitness_app;
+ALTER TABLE rutinas ADD COLUMN activa BOOLEAN DEFAULT TRUE;

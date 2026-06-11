@@ -222,7 +222,7 @@ async function obtenerRutinasPorUsuario(usuario_id) {
       r.created_at,
       (SELECT COUNT(*) FROM ejercicios_rutinas WHERE rutina_id = r.id) AS total_ejercicios
     FROM rutinas r
-    WHERE r.usuario_id = ?
+    WHERE r.usuario_id = ? AND r.activa = TRUE
     ORDER BY r.created_at DESC
   `;
 
@@ -282,6 +282,26 @@ async function insertarEjerciciosEnRutina(rutinaId, ejercicios_ids) {
   await Promise.all(promises);
 }
 
+// ============================================================
+// desactivarRutina(rutinaId, usuarioId)
+// ============================================================
+// No borra la rutina de la BD, sino que marca activa = FALSE
+// para que no aparezca en el listado del usuario.
+//
+// El historial de entrenamientos con esta rutina se conserva.
+//
+// Parámetros:
+//   rutinaId  - ID de la rutina a desactivar
+//   usuarioId - ID del dueño (viene del JWT)
+//
+// Retorna:
+//   affectedRows - 1 si se desactivó, 0 si no existía o no era del usuario
+async function desactivarRutina(rutinaId, usuarioId) {
+  const sql = 'UPDATE rutinas SET activa = FALSE WHERE id = ? AND usuario_id = ?';
+  const [result] = await pool.execute(sql, [rutinaId, usuarioId]);
+  return result.affectedRows;
+}
+
 // Exportamos las funciones para que el controlador las use
 module.exports = {
   obtenerRutinaConEjercicios,
@@ -289,4 +309,5 @@ module.exports = {
   insertarRutina,
   obtenerRutinasPorUsuario,
   insertarEjerciciosEnRutina,
+  desactivarRutina,
 };

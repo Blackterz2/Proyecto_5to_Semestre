@@ -16,7 +16,7 @@
 //     qué URL ejecuta qué función. Sin sorpresas.
 
 const { Router } = require('express');
-const { getRutina, crearRutina, getRutinasDelUsuario } = require('../controllers/rutinaController');
+const { getRutina, crearRutina, getRutinasDelUsuario, eliminarRutina } = require('../controllers/rutinaController');
 const { verificarToken } = require('../middlewares/authMiddleware');
 
 const router = Router();
@@ -56,5 +56,14 @@ router.post('/crear', verificarToken, crearRutina);
 // El controlador se encarga de validar que sea un número.
 // El router SOLO enruta.
 router.get('/:id', verificarToken, getRutina);
+
+// ============================================================
+// DELETE /:id - Desactivar (borrado lógico) una rutina
+// ============================================================
+// 🔒 Protegida con JWT: solo el dueño puede desactivar su rutina.
+//
+// No borra la rutina de la BD, solo marca activa = FALSE para
+// conservar el historial de entrenamientos.
+router.delete('/:id', verificarToken, eliminarRutina);
 
 module.exports = router;

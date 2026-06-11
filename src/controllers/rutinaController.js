@@ -16,7 +16,7 @@
 
 // Importamos el modelo. Notá que importamos UNA FUNCIÓN
 // específica, no todo el modelo. Claridad ante todo.
-const { obtenerRutinaConEjercicios, contarRutinasUsuario, insertarRutina, obtenerRutinasPorUsuario, insertarEjerciciosEnRutina } = require('../models/rutinaModel');
+const { obtenerRutinaConEjercicios, contarRutinasUsuario, insertarRutina, obtenerRutinasPorUsuario, insertarEjerciciosEnRutina, desactivarRutina } = require('../models/rutinaModel');
 
 // ============================================================
 // getRutina(req, res) - GET /api/rutinas/:id
@@ -233,5 +233,45 @@ async function getRutinasDelUsuario(req, res) {
   }
 }
 
+// ============================================================
+// eliminarRutina(req, res) - DELETE /api/rutinas/:id
+// ============================================================
+// Marca la rutina como inactiva (borrado lógico) para el
+// usuario autenticado. No la borra físicamente para conservar
+// el historial de entrenamientos.
+async function eliminarRutina(req, res) {
+  try {
+    const rutinaId = Number(req.params.id);
+
+    // Validar que el ID sea un número válido
+    if (isNaN(rutinaId)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'El ID de la rutina debe ser un número válido',
+      });
+    }
+
+    const affectedRows = await desactivarRutina(rutinaId, req.usuario.usuario_id);
+
+    if (affectedRows === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Rutina no encontrada',
+      });
+    }
+
+    res.json({
+      status: 'ok',
+      message: 'Rutina desactivada correctamente',
+    });
+  } catch (error) {
+    console.error('Error al eliminar rutina:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error interno del servidor',
+    });
+  }
+}
+
 // Exportamos las funciones para que la ruta las use
-module.exports = { getRutina, crearRutina, getRutinasDelUsuario };
+module.exports = { getRutina, crearRutina, getRutinasDelUsuario, eliminarRutina };
