@@ -82,12 +82,15 @@ const toggleToLogin       = document.getElementById('toggle-to-login');
 // Eliminación de cuenta
 const btnEliminarCuenta   = document.getElementById('btn-eliminar-cuenta');
 
-// Lightbox de imágenes de ejercicios
-const lightbox     = document.getElementById('lightbox');
-const lightboxImg  = document.getElementById('lightbox-img');
-const lightboxName = document.getElementById('lightbox-name');
-const lightboxDesc = document.getElementById('lightbox-desc');
-const lightboxClose = document.querySelector('.lightbox-close');
+// ============================================================
+// PANEL DE DETALLE DE EJERCICIO (Hito 15)
+// ============================================================
+const panelDetalle       = document.getElementById('panel-detalle-ejercicio');
+const panelDetalleImg    = document.getElementById('panel-detalle-img');
+const panelDetalleNombre = document.getElementById('panel-detalle-nombre');
+const panelDetalleMusculo = document.getElementById('panel-detalle-musculo');
+const panelDetalleDesc   = document.getElementById('panel-detalle-desc');
+const panelDetalleBack   = document.getElementById('panel-detalle-back');
 
 // ============================================================
 // ESTADO DE LA APLICACIÓN
@@ -606,7 +609,7 @@ async function renderizarCheckboxesEnModal(terminoBusqueda) {
     const categoria = ej.categoria || 'general';
     const musculos = ej.musculos ? ` | ${ej.musculos}` : '';
     html += `
-      <div class="ejercicio-list-item">
+      <div class="ejercicio-list-item" data-ejercicio-id="${ej.id}">
         ${renderizarImagenEjercicio(ej)}
         <div class="ejercicio-info">
           <div class="ejercicio-nombre">${ej.nombre}</div>
@@ -2552,49 +2555,71 @@ document.querySelector('#rutinas-view')?.addEventListener('click', async (e) => 
 });
 
 // ============================================================
-// LIGHTBOX — Abrir al hacer clic en una imagen de ejercicio
+// mostrarDetalleEjercicio(id) — Abre el panel de detalle
+// buscando el ejercicio en el catálogo global
+// ============================================================
+function mostrarDetalleEjercicio(ejercicioId) {
+  const ejercicio = catalogoEjercicios?.find(e => e.id === ejercicioId);
+  if (!ejercicio) return;
+
+  // Imagen
+  const imgSrc = ejercicio.imagen_url ? `/images/${ejercicio.imagen_url}` : '';
+  panelDetalleImg.src = imgSrc;
+  panelDetalleImg.alt = ejercicio.nombre || 'Ejercicio';
+
+  // Nombre
+  panelDetalleNombre.textContent = ejercicio.nombre || '';
+
+  // Grupo muscular (badge)
+  const grupoMuscular = ejercicio.musculos || ejercicio.grupo_muscular || 'General';
+  panelDetalleMusculo.textContent = grupoMuscular;
+
+  // Descripción técnica
+  panelDetalleDesc.textContent = ejercicio.descripcion || 'Sin descripción disponible.';
+
+  // Mostrar panel con animación
+  panelDetalle.classList.remove('hidden');
+}
+
+// ============================================================
+// PANEL DETALLE — Abrir al hacer clic en una miniatura
 // ============================================================
 // Delegación global: captura clics en .img-ejercicio-thumb
-// (imágenes en listas y modales) y en .card-img img (si
-// alguna card tuviera imagen en el futuro).
+// Busca el id del ejercicio en el catálogo para mostrar datos completos
 document.addEventListener('click', (e) => {
   const img = e.target.closest('.img-ejercicio-thumb, .card-img img');
   if (!img) return;
 
-  // Buscar datos del ejercicio en el DOM
   const card = img.closest('.ejercicio-list-item, .card');
   if (!card) return;
 
-  const nombre = card.querySelector('.ejercicio-nombre, .card-title')?.textContent || '';
-  const descEl = card.querySelector('.card-descripcion');
-  const desc = descEl?.textContent || '';
-  const src = img.src || '';
+  // Obtener ID del ejercicio desde el dataset del contenedor
+  // o desde el atributo data-ejercicio-id del item
+  const ejercicioId = Number(card.dataset.ejercicioId) ||
+                      Number(card.closest('[data-ejercicio-id]')?.dataset.ejercicioId);
+  if (!ejercicioId) return;
 
-  if (!src) return;
-
-  lightboxImg.src = src;
-  lightboxName.textContent = nombre;
-  lightboxDesc.textContent = desc;
-  lightbox.classList.remove('hidden');
+  mostrarDetalleEjercicio(ejercicioId);
 });
 
 // ============================================================
-// LIGHTBOX — Cerrar
+// PANEL DETALLE — Cerrar
 // ============================================================
-function cerrarLightbox() {
-  lightbox.classList.add('hidden');
-  lightboxImg.src = '';
+function cerrarPanelDetalle() {
+  panelDetalle.classList.add('hidden');
 }
 
-lightboxClose?.addEventListener('click', cerrarLightbox);
+panelDetalleBack?.addEventListener('click', cerrarPanelDetalle);
 
-lightbox?.addEventListener('click', (e) => {
-  if (e.target === lightbox) cerrarLightbox();
+// También cerrar con clic en el overlay (pero no en el contenido)
+panelDetalle?.addEventListener('click', (e) => {
+  if (e.target === panelDetalle) cerrarPanelDetalle();
 });
 
+// Tecla Escape cierra el panel
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && lightbox && !lightbox.classList.contains('hidden')) {
-    cerrarLightbox();
+  if (e.key === 'Escape' && panelDetalle && !panelDetalle.classList.contains('hidden')) {
+    cerrarPanelDetalle();
   }
 });
 

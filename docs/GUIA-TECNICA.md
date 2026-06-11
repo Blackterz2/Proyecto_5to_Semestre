@@ -25,8 +25,10 @@
 16. [Hito 12.5 — Interfaz de Registro de Usuarios](#16-hito-125--interfaz-de-registro-de-usuarios)
 17. [Hito 12.6 — Soft Delete de Cuenta (Borrado Lógico)](#17-hito-126--soft-delete-de-cuenta-borrado-lógico)
 18. [Hito 12.7 — Avatar Real con Multer + MySQL](#18-hito-127--avatar-real-con-multer--mysql)
-19. [Glosario de Conceptos](#19-glosario-de-conceptos)
-20. [Resumen de APIs](#20-resumen-de-apis)
+19. [Hito 13 — Notas, Lightbox y Borrado Lógico de Rutinas](#19-hito-13--notas-lightbox-y-borrado-lógico-de-rutinas)
+20. [Hito 14 — Sistema de Rescate de Entrenamiento](#20-hito-14--sistema-de-rescate-de-entrenamiento)
+21. [Glosario de Conceptos](#21-glosario-de-conceptos)
+22. [Resumen de APIs](#22-resumen-de-apis)
 
 ---
 
@@ -78,7 +80,8 @@ Proyecto_Blackterz/
 ├── docs/
 │   ├── GUIA-TECNICA.md           ← Este archivo 🎯
 │   ├── migracion-activo.sql      ← Migración: columna activo (soft delete)
-│   └── migracion-avatar.sql      ← Migración: columna avatar_url
+│   ├── migracion-avatar.sql      ← Migración: columna avatar_url
+│   └── migracion-hito13.sql      ← Migración: columna activa en rutinas
 ├── public/                       ← Frontend (estático)
 │   ├── index.html                ← Página principal con login + registro + rutina + perfil + modales
 │   ├── styles.css                ← Dark mode + cards + buscador + responsive + floating timer
@@ -1374,7 +1377,255 @@ Click en avatar → input file → seleccionás foto
 
 ---
 
-## 19. Glosario de Conceptos
+## 19. Hito 13 — Notas, Lightbox y Borrado Lógico de Rutinas
+
+> **Objetivo:** Mejorar la experiencia de entrenamiento con notas editables por ejercicio, visualización de imágenes en pantalla completa, y permitir eliminar rutinas sin perder el historial.
+
+### 19.1 Notas por Ejercicio
+
+Cada ejercicio en la vista de entrenamiento ahora tiene un `<textarea>` editable en vez de la descripción estática:
+
+```html
+<textarea class="ejercicio-notas" placeholder="Notas del ejercicio..."
+          data-ejercicio-id="5"></textarea>
+```
+
+**Características:**
+- El textarea reemplaza el `<p class="card-descripcion">` que mostraba la descripción del ejercicio
+- Se guarda en un `window.notesCache` en tiempo real mediante un listener `input` global:
+  ```js
+  window.notesCache = window.notesCache || {};
+  document.addEventListener('input', (e) => {
+    const ta = e.target.closest('.ejercicio-notas');
+    if (ta) window.notesCache[ta.dataset.ejercicioId] = ta.value;
+  });
+  ```
+- Las notas se envían al backend al finalizar el entrenamiento (campo `notas` en cada ejercicio del POST `/api/sesiones`)
+- `notesCache` se limpia en `limpiarVistaEntrenamiento()` para no arrastrar notas entre sesiones
+
+### 19.2 Lightbox
+
+Modal de pantalla completa para ver imágenes de ejercicios en tamaño real:
+
+```html
+<div id="lightbox" class="lightbox hidden">
+  <span class="lightbox-close">&times;</span>
+  <div class="lightbox-content">
+    <img id="lightbox-img" src="" alt="Ejercicio">
+    <div class="lightbox-info">
+      <h3 id="lightbox-name"></h3>
+      <p id="lightbox-desc"></p>
+    </div>
+  </div>
+</div>
+```
+
+**Apertura:** Delegación global de clics en `.img-ejercicio-thumb`:
+```js
+document.addEventListener('click', (e) => {
+  const img = e.target.closest('.img-ejercicio-thumb, .card-img img');
+  if (!img) return;
+  // Busca nombre, descripción y src desde el DOM
+  lightboxImg.src = src;
+  lightboxName.textContent = nombre;
+  lightboxDesc.textContent = desc;
+  lightbox.classList.remove('hidden');
+});
+```
+
+**Cierre (3 formas):**
+- Botón ✕ (`.lightbox-close`)
+- Clic fuera de la imagen (en el backdrop)
+- Tecla `Escape`
+
+### 19.3 Borrado Lógico de Rutinas (Frontend)
+
+El usuario puede eliminar rutinas desde el dashboard con un botón 🗑️ en cada tarjeta:
+
+```js
+document.querySelector('#rutinas-view')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.btn-eliminar-rutina');
+  if (!btn) return;
+  e.stopPropagation();
+
+  const id = Number(btn.dataset.rutinaId);
+  const nombre = btn.dataset.rutinaNombre;
+  if (!confirm(`¿Eliminar "${nombre}"?`)) return;
+
+  const res = await fetch(`/api/rutinas/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': 'Bearer ' + getToken() },
+  });
+  if (res.ok) btn.closest('.rutina-card')?.remove();
+});
+```
+
+**Backend (documentado en el commit de infraestructura):**
+- `DELETE /api/rutinas/:id` → protegida con JWT
+- `desactivarRutina()` en modelo: `UPDATE rutinas SET activa = FALSE`
+- `obtenerRutinasPorUsuario` filtrado con `WHERE activa = TRUE`
+- Migración: `ALTER TABLE rutinas ADD COLUMN activa BOOLEAN DEFAULT TRUE`
+
+---
+
+## 20. Hito 14 — Sistema de Rescate de Entrenamiento
+
+> **Objetivo:** Si el usuario cierra la página, navega a otra sección o pierde la conexión, al volver encuentra el entrenamiento exactamente como lo dejó.
+
+### 20.1 Arquitectura
+
+Tres funciones principales trabajan juntas para persistir y restaurar el estado:
+
+```
+guardarEstadoEntrenamiento()  →  localStorage('entrenamiento_draft')
+                                      ↓
+ restaurarEstadoEntrenamiento()  ←  DOMContentLoaded + token presente
+                                      ↓
+     ✨ Se restaura timer, ejercicios, series, notas, checkboxes
+     
+           ╱ finalizar (200 OK)  →  limpiarEstadoEntrenamiento()
+   Usuario ── descartar          →  limpiarEstadoEntrenamiento()
+           ╲ logout              →  limpiarEstadoEntrenamiento()
+```
+
+### 20.2 guardarEstadoEntrenamiento()
+
+Serializa TODO el estado visual del DOM a `localStorage`:
+
+```js
+function guardarEstadoEntrenamiento() {
+  const cards = document.querySelectorAll('#contenedor-ejercicios .card');
+  const ejercicios = Array.from(cards).map(card => ({
+    id: Number(card.dataset.ejercicioId),
+    checked: card.querySelector('.check-serie')?.checked || false,
+    notas: card.querySelector('.ejercicio-notas')?.value || '',
+    series: Array.from(card.querySelectorAll('.serie-row')).map(row => ({
+      peso: row.querySelector('input[type="number"]')?.value || '',
+      reps: row.querySelectorAll('input[type="number"]')[1]?.value || ''
+    }))
+  }));
+
+  const draft = {
+    rutinaActualId,
+    horaInicio,                       // timestamp fijo
+    segundosTranscurridos,
+    ejercicios,
+    ejerciciosExtraIds: window.ejerciciosExtraIds || []
+  };
+
+  localStorage.setItem('entrenamiento_draft', JSON.stringify(draft));
+}
+```
+
+### 20.3 restaurarEstadoEntrenamiento()
+
+Se ejecuta al cargar la página si hay un token JWT. Flujo completo:
+
+```
+DOMContentLoaded
+  ↓
+restaurarEstadoEntrenamiento()
+  ↓
+¿Hay draft en localStorage?          → No → return false → flujo normal
+  ↓ Sí
+¿La rutina sigue existiendo?         → No → return false
+  ↓ Sí
+cargarRutina(draft.rutinaActualId)   → Renderiza ejercicios originales
+  ↓
+await cargarCatalogoEjercicios()     → Asegura que el catálogo esté listo
+  ↓
+RECONCILIAR DOM vs DRAFT
+  ├── 1. Remover cards eliminadas    (están en DOM pero no en draft)
+  ├── 2. Agregar ejercicios extra    (están en draft pero no en originales)
+  └── 3. poblarListaEjerciciosExtra()— Refresca panel anti-duplicados
+  ↓
+Restaurar checkboxes globales y notas
+  ↓
+Restaurar series (reemplaza las de la DB con las del draft)
+  ↓
+Restaurar timer
+  ├── horaInicio = draft.horaInicio  (timestamp fijo, no varía al refrescar)
+  ├── segundosTranscurridos = Math.floor((Date.now() - horaInicio) / 1000)
+  └── setInterval actualiza display cada 1s
+  ↓
+mostrarToast('🔄 Entrenamiento restaurado')
+```
+
+### 20.4 Disparadores de Guardado Automático
+
+| Evento | Elemento | Código |
+|--------|----------|--------|
+| ✏️ Escribir notas | `textarea.ejercicio-notas` | `input` listener global |
+| ☑️ Marcar serie | `.check-serie` | `change` listener global |
+| 🔢 Peso / reps | `.input-serie` | `input` listener global |
+| ➕ Agregar serie | `[data-action="add-serie"]` | `guardarEstadoEntrenamiento()` inline |
+| 🗑️ Eliminar serie | `[data-action="delete-serie"]` | `guardarEstadoEntrenamiento()` inline |
+| ➕ Agregar ejercicio extra | `[data-action="add-extra-ejercicio"]` | `guardarEstadoEntrenamiento()` inline |
+| 🗑️ Eliminar ejercicio | `[data-action="delete-ejercicio"]` | `guardarEstadoEntrenamiento()` inline |
+
+### 20.5 Disparadores de Limpieza
+
+| Evento | Código |
+|--------|--------|
+| ✅ Finalizar entrenamiento (POST 200 OK) | `limpiarEstadoEntrenamiento()` |
+| ❌ Descartar entrenamiento (confirm) | `limpiarEstadoEntrenamiento()` |
+| 🚪 Logout | `limpiarEstadoEntrenamiento()` |
+
+### 20.6 crearCardEjercicioExtra()
+
+Refactorizada para ser reutilizable desde dos lugares:
+- Botón "+" en el panel de ejercicios extra
+- `restaurarEstadoEntrenamiento()` para reconstruir cards al refrescar
+
+```js
+function crearCardEjercicioExtra(ejercicio, notasValue) {
+  // Crea card completa con:
+  // - Header (orden +, nombre, 🗑️ delete-ejercicio)
+  // - Textarea de notas
+  // - Fila de serie por defecto con: kg, reps, checkbox, 🗑️ delete-serie
+  // - Botón "+ Serie"
+  return card;
+}
+```
+
+### 20.7 Bugs Corregidos
+
+| # | Síntoma | Causa | Fix |
+|---|---------|-------|-----|
+| 1 | Timer saltaba al refrescar | Se calculaba desde `segundosTranscurridos` (valor congelado) en vez del timestamp absoluto | Usar `draft.horaInicio` como fuente primaria |
+| 2 | Series no persistían al ±serie | Faltaba `guardarEstadoEntrenamiento()` en handlers de add/delete-serie | Agregar la llamada explícita |
+| 3 | Ejercicios extra desaparecían al refrescar | `catalogoEjercicios` vacío durante reconciliación (se cargaba async sin `await`) | `await cargarCatalogoEjercicios()` antes de reconciliar |
+| 4 | Notas de extra se perdían al refrescar | `crearCardEjercicioExtra()` recibía `''` en vez de `savedEj.notas` | Pasar `savedEj.notas \|\| ''` |
+| 5 | Extra sin checkbox ni 🗑️ | La serie por defecto en extra no incluía esos elementos | Agregarlos en `crearCardEjercicioExtra()` |
+| 6 | Extra aparecían duplicados en panel tras refrescar | `poblarListaEjerciciosExtra()` se ejecutaba antes de agregar los extra al DOM | Llamar `poblarListaEjerciciosExtra()` de nuevo después de reconciliar |
+
+### 20.8 Formato del Draft en localStorage
+
+```json
+{
+  "rutinaActualId": 5,
+  "horaInicio": 1718059200000,
+  "segundosTranscurridos": 845,
+  "ejercicios": [
+    {
+      "id": 12,
+      "checked": false,
+      "notas": "Mantener codo pegado al cuerpo",
+      "series": [
+        { "peso": "20", "reps": "12" },
+        { "peso": "25", "reps": "10" }
+      ]
+    }
+  ],
+  "ejerciciosExtraIds": [4, 7]
+}
+```
+
+---
+
+## 21. Glosario de Conceptos
+
+> **Nota:** los conceptos de hitos anteriores no se repiten acá. Este glosario es acumulativo: cada hito agrega los conceptos nuevos que introduce.
 
 ### Arquitectura
 
@@ -1429,14 +1680,18 @@ Click en avatar → input file → seleccionás foto
 | Concepto | Explicación |
 |----------|-------------|
 | **fetch()** | API nativa del navegador para hacer peticiones HTTP. Reemplaza a XMLHttpRequest. |
-| **localStorage** | Almacenamiento clave-valor que persiste en el navegador aunque se cierre la pestaña. |
+| **localStorage** | Almacenamiento clave-valor que persiste en el navegador aunque se cierre la pestaña. Útil para rescatar estado de sesiones. |
 | **createElement()** | Método del DOM para crear elementos HTML desde JavaScript. |
 | **CSS Variables** | Variables declaradas con `--nombre` que se reutilizan en todo el CSS. Permiten cambiar el tema fácilmente. |
 | **Dark Mode** | Esquema de colores con fondo oscuro y texto claro. Reduce fatiga visual y ahorra batería en pantallas OLED. |
+| **Lightbox** | Modal que muestra una imagen en pantalla completa con overlay oscuro. Se abre al hacer clic en un thumbnail y se cierra con ✕, Escape o clic fuera. |
+| **Event Delegation** | Patrón donde un solo event listener en un contenedor padre maneja eventos de todos sus hijos, incluso los agregados dinámicamente después. Se usa `e.target.closest()` para identificar el elemento objetivo. |
+| **JSON.parse / JSON.stringify** | `JSON.stringify()` serializa objetos JS a string para almacenarlos. `JSON.parse()` los reconstruye al leerlos. Es el formato estándar para `localStorage`. |
+| **Serialización de Estado** | Técnica de capturar el estado visual del DOM (ejercicios, series, pesos) en una estructura de datos para persistirla y restaurarla después. La base del sistema de rescate de entrenamiento. |
 
 ---
 
-## 20. Resumen de APIs
+## 22. Resumen de APIs
 
 | Método | Ruta | Auth | Descripción | Request Body | Response |
 |--------|------|------|-------------|--------------|----------|
@@ -1446,6 +1701,7 @@ Click en avatar → input file → seleccionás foto
 | `GET` | `/api/ejercicios` | 🔒 | Catálogo completo de ejercicios con grupos musculares | - | `{ status: "ok", data: [{ id, nombre, descripcion, categoria, imagen_url, musculos }] }` |
 | `POST` | `/api/rutinas/crear` | 🔒 | Crear rutina con ejercicios seleccionados | `{ nombre, ejercicios_ids: [1, 2, ...] }` | `201` + `{ status: "ok", data: { rutinaId } }` |
 | `GET` | `/api/rutinas/:id` | 🔒 | Obtener rutina con ejercicios | - | `{ status: "ok", data: { id, nombre, ejercicios: [...] } }` |
+| `DELETE` | `/api/rutinas/:id` | 🔒 | Desactivar (borrado lógico) una rutina | - | `{ status: "ok", message: "Rutina desactivada correctamente" }` |
 | `GET` | `/api/sesiones` | 🔒 | Obtener historial del usuario autenticado | - | `{ status: "ok", data: [{ id, fecha, notas, rutina_nombre }, ...] }` |
 | `POST` | `/api/sesiones` | 🔒 | Guardar sesión de entrenamiento | `{ rutina_id, fecha, notas, ejercicios: [...] }` | `201` + `{ status: "ok", data: { sesionId } }` |
 | `GET` | `/api/usuarios/me` | 🔒 | Obtener perfil del usuario autenticado (nombre, email, avatar_url) | - | `{ status: "ok", data: { id, nombre, email, avatar_url } }` |
