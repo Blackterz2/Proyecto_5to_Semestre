@@ -278,6 +278,7 @@ body {
 
 /* Tarjeta de cada rutina en el listado */
 .rutina-card {
+  position: relative;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -329,6 +330,23 @@ body {
   background: rgba(0, 210, 170, 0.04);
   box-shadow: 0 4px 16px rgba(0, 210, 170, 0.1);
 }
+
+/* Botón para eliminar rutina (borrado lógico) */
+.btn-eliminar-rutina {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+  z-index: 1;
+  line-height: 1;
+  padding: 4px;
+}
+.btn-eliminar-rutina:hover { opacity: 1; }
 
 /* Mensaje de límite alcanzado */
 .limite-msg {
@@ -859,6 +877,28 @@ body {
   line-height: 1.5;
 }
 
+/* Textarea de notas por ejercicio */
+.ejercicio-notas {
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 0.85rem;
+  resize: vertical;
+  min-height: 32px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.ejercicio-notas:focus {
+  outline: none;
+  border-color: #e94560;
+  background: rgba(233, 69, 96, 0.05);
+}
+
 .card-stats {
   display: flex;
   flex-wrap: wrap;
@@ -1370,6 +1410,61 @@ body {
 }
 
 /* ============================================================
+   LIGHTBOX — Vista ampliada de imágenes de ejercicios
+   ============================================================ */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-content {
+  text-align: center;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.lightbox-content img {
+  max-width: 90vw;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.lightbox-name {
+  color: #fff;
+  font-weight: bold;
+  font-size: 1.2rem;
+  margin-top: 12px;
+}
+
+.lightbox-desc {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.95rem;
+}
+
+.lightbox-close {
+  position: fixed;
+  top: 20px;
+  right: 30px;
+  font-size: 2.5rem;
+  color: #fff;
+  cursor: pointer;
+  z-index: 1001;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.lightbox-close:hover {
+  opacity: 1;
+}
+
+/* ============================================================
    FOOTER
    ============================================================ */
 .footer {
@@ -1517,4 +1612,22 @@ body {
   .modal-actions .btn-login {
     width: 100% !important;
   }
+}
+
+/* ============================================================
+   TOAST — Notificación de restauración (Hito 14)
+   ============================================================ */
+.toast-restore {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #00d2aa;
+  color: #0f0f0f;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: bold;
+  z-index: 999;
+  transition: opacity 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }

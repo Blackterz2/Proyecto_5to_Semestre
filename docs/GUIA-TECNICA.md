@@ -21,8 +21,12 @@
 12. [Hito 11 — Correcciones UX (3 partes)](#12-hito-11--correcciones-ux-3-partes)
 13. [Tarea Especial — Seed Scraper y Catálogo en Español](#13-tarea-especial--seed-scraper-y-catálogo-en-español)
 14. [Bugfix + Buscador de Ejercicios](#14-bugfix--buscador-de-ejercicios)
-15. [Glosario de Conceptos](#15-glosario-de-conceptos)
-16. [Resumen de APIs](#16-resumen-de-apis)
+15. [Hito 12 — Navegación 3 vistas + Perfil + Temporizador + Burbuja Flotante](#15-hito-12--navegación-3-vistas--perfil--temporizador--burbuja-flotante)
+16. [Hito 12.5 — Interfaz de Registro de Usuarios](#16-hito-125--interfaz-de-registro-de-usuarios)
+17. [Hito 12.6 — Soft Delete de Cuenta (Borrado Lógico)](#17-hito-126--soft-delete-de-cuenta-borrado-lógico)
+18. [Hito 12.7 — Avatar Real con Multer + MySQL](#18-hito-127--avatar-real-con-multer--mysql)
+19. [Glosario de Conceptos](#19-glosario-de-conceptos)
+20. [Resumen de APIs](#20-resumen-de-apis)
 
 ---
 
@@ -43,6 +47,7 @@
 | **Framework HTTP** | Express 4.21 |
 | **Base de Datos** | MySQL (driver mysql2/promise) |
 | **Auth** | bcrypt (hasheo) + jsonwebtoken (JWT) |
+| **Subida de archivos** | multer (fotos de perfil) |
 | **Frontend** | HTML5 + CSS3 + Vanilla JS |
 | **Entorno** | dotenv para variables de entorno |
 
@@ -50,11 +55,11 @@
 
 La base de datos real se llama **`fitness_app`** (no `blackterz`). Fue creada en un proyecto anterior y reutilizada acá. Contiene las tablas:
 
-- `usuarios` — id, nombre, email, password, created_at, updated_at
+- `usuarios` — id, nombre, email, password, created_at, **activo** (soft delete), **avatar_url** (foto de perfil)
 - `rutinas` — id, usuario_id, nombre, descripcion, notas
 - `ejercicios` — id, nombre, descripcion, categoria, imagen_url
 - `ejercicios_rutinas` — id, rutina_id, ejercicio_id, orden, series, repeticiones, peso
-- `sesiones_entrenamiento` — id, usuario_id, rutina_id, fecha, notas
+- `sesiones_entrenamiento` — id, usuario_id, rutina_id, fecha, notas, **duracion_minutos**
 - `sesion_ejercicios` — id, sesion_id, ejercicio_id, notas
 - `sesion_series` — id, sesion_ejercicio_id, numero_serie, repeticiones, peso
 
@@ -71,12 +76,16 @@ Proyecto_Blackterz/
 ├── seedScraper.js                ← Scraper de strengthlevel.es (español)
 ├── seed.sql                      ← SQL generado con 64 ejercicios
 ├── docs/
-│   └── GUIA-TECNICA.md           ← Este archivo 🎯
+│   ├── GUIA-TECNICA.md           ← Este archivo 🎯
+│   ├── migracion-activo.sql      ← Migración: columna activo (soft delete)
+│   └── migracion-avatar.sql      ← Migración: columna avatar_url
 ├── public/                       ← Frontend (estático)
-│   ├── index.html                ← Página principal con login + rutina + modales
-│   ├── styles.css                ← Dark mode + cards + buscador + responsive
-│   ├── app.js                    ← Fetch + DOM + eventos + buscador
-│   └── images/                   ← Imágenes de ejercicios (.avif a color)
+│   ├── index.html                ← Página principal con login + registro + rutina + perfil + modales
+│   ├── styles.css                ← Dark mode + cards + buscador + responsive + floating timer
+│   ├── app.js                    ← Fetch + DOM + eventos + buscador + temporizador
+│   └── images/
+│       ├── *.avif                ← Imágenes de ejercicios (64)
+│       └── avatars/              ← Fotos de perfil subidas por usuarios
 └── src/
     ├── server.js                 ← Entry point (Express + MIME types)
     ├── config/
@@ -86,19 +95,22 @@ Proyecto_Blackterz/
     ├── models/                   ← Capa de datos (SQL)
     │   ├── rutinaModel.js        ← Rutina + ejercicios (JOIN)
     │   ├── sesionModel.js        ← Guardar sesión (transacción)
-    │   ├── authModel.js          ← Usuarios: crear + buscar
-    │   └── ejercicioModel.js     ← Catálogo con grupos musculares
+    │   ├── authModel.js          ← Usuarios: crear + buscar + activo
+    │   ├── ejercicioModel.js     ← Catálogo con grupos musculares
+    │   └── usuarioModel.js       ← Gestión de cuenta (desactivar, perfil, avatar)
     ├── controllers/              ← Capa de lógica HTTP
     │   ├── rutinaController.js
     │   ├── sesionController.js
-    │   ├── authController.js     ← register + login
-    │   └── ejercicioController.js← GET /api/ejercicios
+    │   ├── authController.js     ← register + login (verifica activo)
+    │   ├── ejercicioController.js← GET /api/ejercicios
+    │   └── usuarioController.js  ← eliminarCuenta, obtenerPerfil, subirAvatar (multer)
     └── routes/                   ← Capa de enrutamiento
         ├── health.js
         ├── rutinaRoutes.js
         ├── sesionRoutes.js
         ├── authRoutes.js
-        └── ejercicioRoutes.js    ← Rutas del catálogo
+        ├── ejercicioRoutes.js
+        └── usuarioRoutes.js      ← GET /me, DELETE /me, POST /avatar    ← Rutas del catálogo
 ```
 
 ---
@@ -1107,7 +1119,262 @@ Se agregó un campo de búsqueda en **dos lugares**:
 
 ---
 
-## 15. Glosario de Conceptos
+## 15. Hito 12 — Navegación 3 vistas + Perfil + Temporizador + Burbuja Flotante
+
+> **Objetivo:** Restructurar la navegación de 2 a 3 vistas, crear vista de perfil con email desde JWT, agregar temporizador de entrenamiento con burbuja flotante y modal de conflicto.
+
+### Navegación
+
+| Antes | Después |
+|-------|---------|
+| `📋 Historial` \| `🏋️ Entrenar` | `🏋️ Rutinas` \| `👤 Perfil` \| `🎯 Entrenar` |
+
+Se crearon 3 vistas independientes manejadas por `mostrarVistaRutinas()`, `mostrarVistaPerfil()` y `mostrarEntrenar()`. Cada una oculta las otras con la clase `.hidden`.
+
+### Vista Perfil
+
+- Avatar circular con borde accent (`perfil-avatar`)
+- Email del usuario extraído del JWT
+- Placeholder de progreso (`📊 Próximamente: Gráficos de Progreso`)
+- Sección de historial de entrenamientos
+- Responsive: se adapta a mobile
+
+### Temporizador de Entrenamiento
+
+Cuando se inicia un entrenamiento, un cronómetro `mm:ss` aparece en el header de la vista Entrenar:
+
+```js
+function iniciarTemporizador() {
+  detenerTemporizador();
+  segundosTranscurridos = 0;
+  horaInicio = Date.now();
+  // setInterval actualiza el display cada 1 segundo
+}
+
+function detenerTemporizador() {
+  clearInterval(intervaloReloj);
+  ocultarFloatingTimer();
+}
+```
+
+### Burbuja Flotante (Floating Timer Badge)
+
+- **Visible solo cuando NO estás en la vista Entrenar** pero hay un training activo
+- Posición fixed abajo a la derecha con animación `floatIn`
+- Se sincroniza con el cronómetro inline cada 1 segundo
+- **Click →** navega a la vista Entrenar
+- Estilos: `floating-timer`, `floating-timer-icon`, `floating-timer-display`
+
+### Modal de Conflicto
+
+Cuando el usuario hace clic en una rutina mientras hay un entrenamiento activo:
+
+```
+╔══════════════════════════════╗
+║  ⚠️ Entrenamiento activo     ║
+║                              ║
+║  Ya tenés un entrenamiento   ║
+║  en curso: "Full Body"       ║
+║  ⏱️ 12:34                    ║
+║                              ║
+║  [🗑️ Descartar y empezar    ║
+║   nueva]                     ║
+║  [↩️ Volver al entrenamiento ║
+║   actual]                    ║
+╚══════════════════════════════╝
+```
+
+### Bugs corregidos
+
+- **Rutina sin ejercicios:** ahora muestra el panel de ejercicios extra + botones de acción
+- **Estado residual:** se limpia el DOM al inicio de `cargarRutina()` (botones, panel extra)
+- **Timer duplicado:** la burbuja flotante solo aparece cuando SALÍS de la vista Entrenar
+- **Timer se reiniciaba:** el listener de pestaña ya no llama `cargarRutina()` si hay training activo
+- **Logout dejaba estado colgado:** ahora resetea `entrenamientoActivo`, `rutinaActualId` y detiene el timer
+
+### Backend
+
+Se agregó `duracion_minutos` al INSERT y SELECT de `sesionModel.js` para persistir la duración del entrenamiento.
+
+---
+
+## 16. Hito 12.5 — Interfaz de Registro de Usuarios
+
+> **Objetivo:** Permitir que los usuarios se registren desde el frontend sin tener que insertar datos manualmente en la DB.
+
+### Flujo
+
+1. El usuario ve el formulario de login por defecto
+2. Hace clic en **"¿No tenés cuenta? Registrate aquí"**
+3. Se muestra el formulario de registro con:
+   - **Nombre** (opcional)
+   - **Email** (obligatorio)
+   - **Contraseña** (mínimo 6 caracteres)
+4. Al hacer submit → `POST /api/auth/register`
+5. **Éxito (201):** mensaje verde "✅ Cuenta creada con éxito" → redirige al login tras 2 segundos
+6. **Error (409):** "❌ El email ya está registrado"
+
+### Toggle de formularios
+
+Ambos formularios comparten la misma `.login-card`. Se alternan con las funciones:
+
+```js
+function mostrarAuthLogin() {
+  registerWrapper?.classList.add('hidden');
+  loginWrapper?.classList.remove('hidden');
+}
+
+function mostrarAuthRegister() {
+  loginWrapper?.classList.add('hidden');
+  registerWrapper?.classList.remove('hidden');
+}
+```
+
+### Backend
+
+No se tocó — `POST /api/auth/register` ya existía y funcionaba correctamente (validación, bcrypt, inserción).
+
+---
+
+## 17. Hito 12.6 — Soft Delete de Cuenta (Borrado Lógico)
+
+> **Objetivo:** Permitir que los usuarios eliminen su cuenta sin destruir datos históricos. En lugar de borrar la fila, se marca como `activo = FALSE`.
+
+### Migración SQL
+
+```sql
+USE fitness_app;
+ALTER TABLE usuarios ADD COLUMN activo BOOLEAN DEFAULT TRUE;
+```
+
+### Backend
+
+**Modelo** (`usuarioModel.js`):
+```js
+async function desactivarUsuario(usuarioId) {
+  await pool.execute('UPDATE usuarios SET activo = FALSE WHERE id = ?', [usuarioId]);
+}
+```
+
+**Controlador** (`usuarioController.js`):
+- `eliminarCuenta()` → llama a `desactivarUsuario()` con el ID del JWT
+
+**Ruta** (`usuarioRoutes.js`):
+- `DELETE /api/usuarios/me` → protegida con JWT
+
+**Login modificado** (`authController.js`):
+```js
+if (!usuario.activo) {
+  return res.status(403).json({
+    message: 'Esta cuenta ha sido desactivada',
+  });
+}
+```
+
+### Frontend
+
+- **Zona de Peligro** al final del perfil con botón rojo "Eliminar mi cuenta"
+- **Prompt estricto:** el usuario debe escribir exactamente `ELIMINAR` para confirmar
+- Al confirmar: `fetch DELETE /api/usuarios/me` → limpia localStorage → redirige al login
+
+### ¿Por qué 403 y no 401?
+
+| Código | Significado | Cuándo usarlo |
+|--------|-------------|---------------|
+| **401** | No autenticado | Token faltante o inválido |
+| **403** | Prohibido | Usuario existe pero su cuenta está desactivada |
+
+---
+
+## 18. Hito 12.7 — Avatar Real con Multer + MySQL
+
+> **Objetivo:** Subir fotos de perfil reales al servidor y persistir la ruta en MySQL.
+
+### Migración SQL
+
+```sql
+USE fitness_app;
+ALTER TABLE usuarios ADD COLUMN avatar_url VARCHAR(255) DEFAULT NULL;
+```
+
+### Dependencia
+
+```bash
+npm install multer
+```
+
+### Backend — Multer
+
+**Configuración de almacenamiento:**
+```js
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'public/images/avatars/'),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `avatar-${req.usuario.usuario_id}${ext}`);
+  },
+});
+```
+
+- Archivos guardados en `public/images/avatars/` →
+  servidos automáticamente por `express.static`
+- Nombre único: `avatar-{usuarioId}.jpg` (sobrescribe si ya existe)
+- Filtro: solo imágenes (jpg, png, gif, webp)
+- Límite: 2MB
+
+**Nuevo endpoint público:**
+```js
+// GET /api/usuarios/me → { id, nombre, email, avatar_url }
+router.get('/me', verificarToken, obtenerPerfil);
+
+// POST /api/usuarios/avatar → subir foto (multipart/form-data)
+router.post('/avatar', verificarToken, upload.single('avatar'), subirAvatar);
+```
+
+### Backend — JWT enriquecido
+
+El payload del JWT ahora incluye `nombre` y `email` para usarlos en el frontend sin requests adicionales:
+```js
+const payload = {
+  usuario_id: usuario.id,
+  nombre:     usuario.nombre,
+  email:      usuario.email,
+};
+```
+
+### Frontend — Perfil
+
+- **Avatar clickable:** el círculo del avatar es un `<label>` que dispara un `<input type="file">` oculto
+- **Overlay:** al hacer hover sobre el avatar, aparece un ícono 📷 con fondo semitransparente
+- **Subida:** `new FormData()` → `fetch POST /api/usuarios/avatar` → actualiza el `<img>` al instante
+- **Nombre:** se muestra debajo del avatar con estilo destacado
+
+```js
+const formData = new FormData();
+formData.append('avatar', file);
+
+const respuesta = await fetch('/api/usuarios/avatar', {
+  method: 'POST',
+  headers: { 'Authorization': 'Bearer ' + token },
+  // NO poner Content-Type — fetch lo setea solo
+  body: formData,
+});
+```
+
+### Flujo completo
+
+```
+Perfil → GET /api/usuarios/me → muestra nombre, email, avatar_url
+Click en avatar → input file → seleccionás foto
+  → FormData → POST /api/usuarios/avatar con JWT
+  → multer guarda avatar-5.jpg
+  → UPDATE usuarios SET avatar_url = ?
+  → respuesta con URL → <img> se actualiza al toque
+```
+
+---
+
+## 19. Glosario de Conceptos
 
 ### Arquitectura
 
@@ -1130,6 +1397,21 @@ Se agregó un campo de búsqueda en **dos lugares**:
 | **Prepared Statement** | Consulta SQL con placeholders (?). mysql2 escapa los valores automáticamente, previniendo inyección SQL. |
 | **FK (Foreign Key)** | Columna que referencia la PK de otra tabla. Garantiza integridad referencial. |
 
+### Almacenamiento de Archivos
+
+| Concepto | Explicación |
+|----------|-------------|
+| **multer** | Middleware de Express para manejar `multipart/form-data` (subida de archivos). Configura almacenamiento en disco con `diskStorage()` y filtra por tipo de archivo / tamaño. |
+| **FormData** | API del navegador para construir formularios con archivos. Se usa con `fetch()` para subir fotos. **Importante:** NO setear `Content-Type` manualmente — el navegador lo pone solo con el boundary correcto. |
+| **express.static** | Middleware de Express que sirve archivos estáticos. Cualquier archivo en `public/` se sirve automáticamente. Multer guarda avatares en `public/images/avatars/` y se sirven sin configuración adicional. |
+
+### Seguridad de Cuenta
+
+| Concepto | Explicación |
+|----------|-------------|
+| **Soft Delete** | Borrado lógico: en vez de `DELETE FROM usuarios`, se hace `UPDATE usuarios SET activo = FALSE`. Los datos históricos (rutinas, sesiones) se conservan y el usuario puede ser restaurado. |
+| **ID Spoofing** | Ataque donde el atacante modifica el ID de usuario en el body de la request para actuar como otro usuario. Se previene leyendo el ID del JWT en vez del body. |
+
 ### Autenticación
 
 | Concepto | Explicación |
@@ -1141,7 +1423,6 @@ Se agregó un campo de búsqueda en **dos lugares**:
 | **Payload** | Los datos dentro del JWT (ej: `usuario_id`). Están en base64, no encriptados — cualquiera puede leerlos. |
 | **Firma (Signature)** | HMAC del header + payload usando una clave secreta. Garantiza que el token no fue modificado. |
 | **Bearer Token** | Formato estándar para enviar tokens: `Authorization: Bearer <token>`. |
-| **ID Spoofing** | Ataque donde el atacante modifica el ID de usuario en el body de la request para actuar como otro usuario. Se previene leyendo el ID del JWT en vez del body. |
 
 ### Frontend
 
@@ -1155,7 +1436,7 @@ Se agregó un campo de búsqueda en **dos lugares**:
 
 ---
 
-## 16. Resumen de APIs
+## 20. Resumen de APIs
 
 | Método | Ruta | Auth | Descripción | Request Body | Response |
 |--------|------|------|-------------|--------------|----------|
@@ -1167,6 +1448,9 @@ Se agregó un campo de búsqueda en **dos lugares**:
 | `GET` | `/api/rutinas/:id` | 🔒 | Obtener rutina con ejercicios | - | `{ status: "ok", data: { id, nombre, ejercicios: [...] } }` |
 | `GET` | `/api/sesiones` | 🔒 | Obtener historial del usuario autenticado | - | `{ status: "ok", data: [{ id, fecha, notas, rutina_nombre }, ...] }` |
 | `POST` | `/api/sesiones` | 🔒 | Guardar sesión de entrenamiento | `{ rutina_id, fecha, notas, ejercicios: [...] }` | `201` + `{ status: "ok", data: { sesionId } }` |
+| `GET` | `/api/usuarios/me` | 🔒 | Obtener perfil del usuario autenticado (nombre, email, avatar_url) | - | `{ status: "ok", data: { id, nombre, email, avatar_url } }` |
+| `DELETE` | `/api/usuarios/me` | 🔒 | Desactivar (soft delete) la cuenta del usuario autenticado | - | `{ status: "ok", message: "Cuenta desactivada" }` |
+| `POST` | `/api/usuarios/avatar` | 🔒 | Subir foto de perfil (multipart/form-data) | `FormData { avatar: File }` | `{ status: "ok", data: { avatar_url } }` |
 | `GET` | `/` | ❌ | Frontend (HTML/CSS/JS) | - | Página web |
 
 ### Códigos de respuesta
@@ -1177,6 +1461,7 @@ Se agregó un campo de búsqueda en **dos lugares**:
 | **201** | Created | Recurso creado exitosamente (POST) |
 | **400** | Bad Request | Faltan campos requeridos, ID inválido, formato incorrecto |
 | **401** | Unauthorized | Token faltante, inválido o expirado |
+| **403** | Forbidden | Cuenta desactivada (activo = FALSE), no se permite el acceso |
 | **404** | Not Found | Recurso no existe (ej: rutina ID 999) |
 | **409** | Conflict | Email ya registrado |
 | **500** | Internal Server Error | Error interno (DB caída, error de sintaxis SQL, etc.) |

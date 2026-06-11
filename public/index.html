@@ -404,6 +404,18 @@
   </div>
 
   <!-- ============================================================
+  LIGHTBOX — Vista ampliada de imágenes de ejercicios
+  ============================================================ -->
+  <div id="lightbox" class="lightbox-overlay hidden">
+    <span class="lightbox-close">&times;</span>
+    <div class="lightbox-content">
+      <img id="lightbox-img" src="" alt="">
+      <p id="lightbox-name" class="lightbox-name"></p>
+      <p id="lightbox-desc" class="lightbox-desc"></p>
+    </div>
+  </div>
+
+  <!-- ============================================================
   FOOTER
   ============================================================ -->
   <footer class="footer">
@@ -411,6 +423,11 @@
       <p>Blackterz &copy; 2026 — Hecho con 💪</p>
     </div>
   </footer>
+
+  <!-- ============================================================
+  TOAST: notificación de restauración de entrenamiento
+  ============================================================ -->
+  <div id="toast-restore" class="toast-restore hidden">🔄 Entrenamiento restaurado</div>
 
   <script src="/app.js"></script>
 </body>

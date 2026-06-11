@@ -82,6 +82,13 @@ const toggleToLogin       = document.getElementById('toggle-to-login');
 // Eliminación de cuenta
 const btnEliminarCuenta   = document.getElementById('btn-eliminar-cuenta');
 
+// Lightbox de imágenes de ejercicios
+const lightbox     = document.getElementById('lightbox');
+const lightboxImg  = document.getElementById('lightbox-img');
+const lightboxName = document.getElementById('lightbox-name');
+const lightboxDesc = document.getElementById('lightbox-desc');
+const lightboxClose = document.querySelector('.lightbox-close');
+
 // ============================================================
 // ESTADO DE LA APLICACIÓN
 // ============================================================
@@ -207,6 +214,218 @@ function detenerTemporizador() {
 function obtenerMinutosTranscurridos() {
   // Redondea al minuto más cercano
   return Math.round(segundosTranscurridos / 60);
+}
+
+// ============================================================
+// FUNCIONES DE PERSISTENCIA DEL ESTADO DEL ENTRENAMIENTO
+// ============================================================
+
+// guardarEstadoEntrenamiento() — Guarda el estado actual del
+// entrenamiento en localStorage para poder restaurarlo si el
+// usuario cierra la página o navega accidentalmente.
+function guardarEstadoEntrenamiento() {
+  const cards = document.querySelectorAll('#contenedor-ejercicios .card');
+  const ejercicios = Array.from(cards).map(card => {
+    const seriesRows = card.querySelectorAll('.serie-row');
+    return {
+      id: Number(card.dataset.ejercicioId),
+      checked: card.querySelector('.check-serie')?.checked || false,
+      notas: card.querySelector('.ejercicio-notas')?.value || '',
+      series: Array.from(seriesRows).map(row => ({
+        peso: row.querySelector('input[type="number"]')?.value || '',
+        reps: row.querySelectorAll('input[type="number"]')[1]?.value || ''
+      }))
+    };
+  });
+
+  const draft = {
+    rutinaActualId: rutinaActualId || null,
+    horaInicio: horaInicio || null,
+    segundosTranscurridos: segundosTranscurridos || 0,
+    ejercicios,
+    ejerciciosExtraIds: window.ejerciciosExtraIds || []
+  };
+
+  localStorage.setItem('entrenamiento_draft', JSON.stringify(draft));
+}
+
+// limpiarEstadoEntrenamiento() — Elimina el draft de localStorage
+// cuando el entrenamiento finaliza, se descarta, o se hace logout.
+function limpiarEstadoEntrenamiento() {
+  localStorage.removeItem('entrenamiento_draft');
+}
+
+// restaurarEstadoEntrenamiento() — Intenta recuperar un draft
+// guardado. Si existe y la rutina sigue disponible, restaura
+// el estado visual (checkboxes, notas) y el temporizador.
+//
+// Devuelve true si se restauró, false si no había draft o falló.
+// Es NO-BLOQUEANTE: si falla, la app sigue su flujo normal.
+async function restaurarEstadoEntrenamiento() {
+  const raw = localStorage.getItem('entrenamiento_draft');
+  if (!raw) return false;
+
+  let draft;
+  try { draft = JSON.parse(raw); } catch { return false; }
+  if (!draft.rutinaActualId) return false;
+
+  try {
+    const res = await fetch(`/api/rutinas/${draft.rutinaActualId}`, {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    });
+    if (!res.ok) return false;
+    const json = await res.json();
+    if (!json.data) return false;
+    const rutina = json.data;
+
+    // Renderizar la rutina usando la función existente
+    await cargarRutina(draft.rutinaActualId);
+
+    // Asegurar que el catálogo de ejercicios esté cargado
+    // para poder reconstruir los ejercicios extra
+    await cargarCatalogoEjercicios();
+
+    // ============================================================
+    // RECONCILIAR DOM CON EL DRAFT
+    // ============================================================
+    // 1. Sacar del DOM los ejercicios que fueron eliminados
+    const draftIds = new Set(draft.ejercicios.map(e => e.id));
+    document.querySelectorAll('#contenedor-ejercicios .card').forEach(card => {
+      if (!draftIds.has(Number(card.dataset.ejercicioId))) {
+        card.remove();
+      }
+    });
+
+    // 2. Agregar al DOM los ejercicios extra que estaban en el draft
+    const originalIds = new Set(rutina.ejercicios.map(e => e.id));
+    for (const savedEj of draft.ejercicios) {
+      if (!originalIds.has(savedEj.id)) {
+        const ejercicio = catalogoEjercicios?.find(e => e.id === savedEj.id);
+        if (ejercicio) {
+          const card = crearCardEjercicioExtra(ejercicio, savedEj.notas || '');
+          // Quitar el mensaje empty si existe
+          const emptyMsg = contenedorEl?.querySelector('.empty');
+          if (emptyMsg) emptyMsg.remove();
+          contenedorEl?.appendChild(card);
+        }
+      }
+    }
+
+    // Refrescar el panel de ejercicios extra para que los que
+    // ya están en el DOM desaparezcan de la lista disponible
+    poblarListaEjerciciosExtra(buscadorExtra?.value);
+
+    // Restaurar checkboxes y notas en las cards ya renderizadas
+    const cards = document.querySelectorAll('#contenedor-ejercicios .card');
+    cards.forEach(card => {
+      const id = Number(card.dataset.ejercicioId);
+      const saved = draft.ejercicios.find(e => e.id === id);
+      if (saved) {
+        const check = card.querySelector('.check-serie');
+        if (check) check.checked = saved.checked;
+        const nota = card.querySelector('.ejercicio-notas');
+        if (nota) nota.value = saved.notas;
+      }
+    });
+
+    // Restaurar series desde el draft (reemplaza las de la DB)
+    cards.forEach(card => {
+      const id = Number(card.dataset.ejercicioId);
+      const saved = draft.ejercicios.find(e => e.id === id);
+      if (saved && saved.series && saved.series.length > 0) {
+        const seriesContainer = card.querySelector('.series-inputs');
+        if (seriesContainer) {
+          // Limpiar series actuales (las que vienen de la DB)
+          seriesContainer.innerHTML = '';
+          // Reconstruir desde el draft con la estructura real del DOM
+          saved.series.forEach((serie, idx) => {
+            const row = document.createElement('div');
+            row.className = 'serie-row';
+
+            const label = document.createElement('span');
+            label.className = 'serie-label';
+            label.textContent = `Serie ${idx + 1}`;
+
+            const inputPeso = document.createElement('input');
+            inputPeso.type = 'number';
+            inputPeso.className = 'input-serie';
+            inputPeso.placeholder = 'kg';
+            inputPeso.min = 0;
+            inputPeso.step = 0.5;
+            inputPeso.dataset.campo = 'peso';
+            inputPeso.value = serie.peso;
+
+            const inputReps = document.createElement('input');
+            inputReps.type = 'number';
+            inputReps.className = 'input-serie';
+            inputReps.placeholder = 'reps';
+            inputReps.min = 0;
+            inputReps.step = 1;
+            inputReps.dataset.campo = 'repeticiones';
+            inputReps.value = serie.reps;
+
+            const checkSerie = document.createElement('input');
+            checkSerie.type = 'checkbox';
+            checkSerie.className = 'check-serie';
+
+            const btnDelete = document.createElement('button');
+            btnDelete.type = 'button';
+            btnDelete.className = 'btn-delete-serie';
+            btnDelete.dataset.action = 'delete-serie';
+            btnDelete.textContent = '🗑️';
+
+            row.appendChild(label);
+            row.appendChild(inputPeso);
+            row.appendChild(inputReps);
+            row.appendChild(checkSerie);
+            row.appendChild(btnDelete);
+            seriesContainer.appendChild(row);
+          });
+        }
+      }
+    });
+
+    // Restaurar timer: detenemos el que inició cargarRutina
+    // y lo reemplazamos con el tiempo guardado
+    detenerTemporizador();
+    horaInicio = draft.horaInicio || (Date.now() - ((draft.segundosTranscurridos || 0) * 1000));
+    segundosTranscurridos = Math.floor((Date.now() - horaInicio) / 1000);
+    rutinaActualId = draft.rutinaActualId;
+    entrenamientoActivo = true;
+    rutinaActivaNombre = rutina.nombre || 'Rutina';
+    window.ejerciciosExtraIds = draft.ejerciciosExtraIds || [];
+
+    // Iniciar el temporizador desde el tiempo restaurado
+    if (timerDisplay) timerDisplay.textContent = formatearTiempo(segundosTranscurridos);
+    if (temporizadorEl) temporizadorEl.classList.remove('hidden');
+
+    intervaloReloj = setInterval(() => {
+      segundosTranscurridos = Math.floor((Date.now() - horaInicio) / 1000);
+      const display = formatearTiempo(segundosTranscurridos);
+      if (timerDisplay) timerDisplay.textContent = display;
+      const ftd = document.getElementById('floating-timer-display');
+      if (ftd) ftd.textContent = display;
+    }, 1000);
+
+    mostrarToast('🔄 Entrenamiento restaurado');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// mostrarToast() — Muestra una notificación temporal en el toast
+// ubicado en la parte inferior central de la pantalla.
+function mostrarToast(mensaje) {
+  const toast = document.getElementById('toast-restore');
+  if (!toast) return;
+  toast.textContent = mensaje;
+  toast.classList.remove('hidden');
+  toast.style.opacity = '1';
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.classList.add('hidden'), 300);
+  }, 2000);
 }
 
 // ============================================================
@@ -658,13 +877,12 @@ async function cargarRutina(rutinaId) {
       header.appendChild(title);
       header.appendChild(btnEliminarEj);
 
-      // --- DESCRIPCIÓN ---
-      let descEl = null;
-      if (ejercicio.descripcion) {
-        descEl = document.createElement('p');
-        descEl.className = 'card-descripcion';
-        descEl.textContent = ejercicio.descripcion;
-      }
+      // --- NOTAS DEL EJERCICIO (textarea editable) ---
+      const notasTextarea = document.createElement('textarea');
+      notasTextarea.className = 'ejercicio-notas';
+      notasTextarea.placeholder = 'Notas del ejercicio...';
+      notasTextarea.dataset.ejercicioId = ejercicio.id;
+      notasTextarea.value = window.notesCache?.[ejercicio.id] || '';
 
       // --- STATS PLANIFICADOS (solo referencia visual) ---
       // Mostramos los valores planeados para que el usuario sepa
@@ -781,7 +999,7 @@ async function cargarRutina(rutinaId) {
 
       // --- ARMAR LA TARJETA COMPLETA ---
       card.appendChild(header);
-      if (descEl) card.appendChild(descEl);
+      card.appendChild(notasTextarea);
       card.appendChild(stats);
       card.appendChild(seriesInputsDiv);
       card.appendChild(btnSerieWrapper);
@@ -1054,6 +1272,7 @@ async function cargarRutinasUsuario() {
 
       html += `
         <div class="rutina-card" data-rutina-id="${rutina.id}">
+          <button class="btn-eliminar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}">🗑️</button>
           <div class="rutina-card-nombre">${rutina.nombre}</div>
           <div class="rutina-card-ejercicios">${textoEj}</div>
         </div>
@@ -1605,6 +1824,7 @@ btnEliminarCuenta?.addEventListener('click', async () => {
 // CERRAR SESIÓN (LOGOUT)
 // ============================================================
 btnLogout?.addEventListener('click', () => {
+  limpiarEstadoEntrenamiento();
   // Limpiar estado de entrenamiento activo (si lo hay)
   // Sin esto, al volver a iniciar sesión queda entrenamientoActivo = true,
   // rutinaActualId apunta a un ID viejo, y el timer sigue corriendo en background.
@@ -1647,6 +1867,31 @@ abrirModal = function () {
   if (buscadorModal) buscadorModal.value = '';
   _abrirModalOriginal();
 };
+
+// ============================================================
+// CACHE DE NOTAS POR EJERCICIO
+// ============================================================
+// Guardamos las notas localmente para que no se pierdan si
+// el usuario cambia de vista y vuelve durante el mismo
+// entrenamiento.
+window.notesCache = window.notesCache || {};
+document.addEventListener('input', (e) => {
+  const ta = e.target.closest('.ejercicio-notas');
+  if (ta) window.notesCache[ta.dataset.ejercicioId] = ta.value;
+});
+
+// ============================================================
+// GUARDADO AUTOMÁTICO DEL ESTADO DEL ENTRENAMIENTO (Hito 14)
+// ============================================================
+// Cada vez que el usuario marca/desmarca un checkbox de serie
+// o escribe en las notas, guardamos el estado en localStorage.
+document.addEventListener('change', (e) => {
+  if (e.target.closest('.check-serie')) guardarEstadoEntrenamiento();
+});
+document.addEventListener('input', (e) => {
+  if (e.target.closest('.ejercicio-notas')) guardarEstadoEntrenamiento();
+  if (e.target.closest('.input-serie')) guardarEstadoEntrenamiento();
+});
 
 // ============================================================
 // EVENTOS DEL CONTENEDOR DE EJERCICIOS (Delegación)
@@ -1698,6 +1943,7 @@ contenedorEl?.addEventListener('click', (e) => {
     }
 
     seriesContainer.appendChild(nuevaFila);
+    guardarEstadoEntrenamiento();
     return;
   }
 
@@ -1729,6 +1975,7 @@ contenedorEl?.addEventListener('click', (e) => {
         label.textContent = 'Serie ' + (i + 1);
       }
     });
+    guardarEstadoEntrenamiento();
     return;
   }
 
@@ -1749,31 +1996,16 @@ contenedorEl?.addEventListener('click', (e) => {
     // Refrescar la lista de ejercicios extra para que el ejercicio
     // eliminado vuelva a estar disponible
     poblarListaEjerciciosExtra(buscadorExtra?.value);
+    guardarEstadoEntrenamiento();
     return;
   }
 });
 // ============================================================
-// Escuchamos clics en la lista de ejercicios extra. Si el clic
-// fue en un botón con data-action="add-extra-ejercicio", buscamos
-// el ejercicio en el catálogo y lo inyectamos al DOM.
-listaEjerciciosExtra?.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-action="add-extra-ejercicio"]');
-  if (!btn) return;
-
-  // Buscamos el item de la lista que contiene el botón
-  const item = btn.closest('.ejercicio-list-item');
-  if (!item) return;
-
-  const ejercicioId = Number(item.dataset.ejercicioId);
-  if (!ejercicioId) return;
-
-  // Buscamos el ejercicio en el catálogo
-  const ejercicio = catalogoEjercicios.find((ej) => ej.id === ejercicioId);
-  if (!ejercicio) return;
-
-  // ============================================================
-  // CREAR TARJETA COMPLETA (mismo formato que cargarRutina)
-  // ============================================================
+// crearCardEjercicioExtra(ejercicio, notasValue) — Construye una
+// card completa para un ejercicio extra. Reutilizable desde el
+// panel de agregar y desde la restauración de estado.
+// ============================================================
+function crearCardEjercicioExtra(ejercicio, notasValue) {
   const card = document.createElement('div');
   card.className = 'card';
   card.dataset.ejercicioId = ejercicio.id;
@@ -1800,13 +2032,12 @@ listaEjerciciosExtra?.addEventListener('click', (e) => {
   header.appendChild(title);
   header.appendChild(btnEliminarEj);
 
-  // --- DESCRIPCIÓN (si tiene) ---
-  let descEl = null;
-  if (ejercicio.descripcion) {
-    descEl = document.createElement('p');
-    descEl.className = 'card-descripcion';
-    descEl.textContent = ejercicio.descripcion;
-  }
+  // --- NOTAS DEL EJERCICIO (textarea editable) ---
+  const notasTextarea = document.createElement('textarea');
+  notasTextarea.className = 'ejercicio-notas';
+  notasTextarea.placeholder = 'Notas del ejercicio...';
+  notasTextarea.dataset.ejercicioId = ejercicio.id;
+  notasTextarea.value = notasValue || '';
 
   // --- UNA SERIE POR DEFECTO ---
   const seriesInputsDiv = document.createElement('div');
@@ -1835,9 +2066,23 @@ listaEjerciciosExtra?.addEventListener('click', (e) => {
   inputReps.step = 1;
   inputReps.dataset.campo = 'repeticiones';
 
+  // Checkbox para marcar la serie como completada
+  const checkSerie = document.createElement('input');
+  checkSerie.type = 'checkbox';
+  checkSerie.className = 'check-serie';
+
+  // Botón para eliminar esta serie individualmente
+  const btnDelete = document.createElement('button');
+  btnDelete.type = 'button';
+  btnDelete.className = 'btn-delete-serie';
+  btnDelete.dataset.action = 'delete-serie';
+  btnDelete.textContent = '🗑️';
+
   serieRow.appendChild(label);
   serieRow.appendChild(inputPeso);
   serieRow.appendChild(inputReps);
+  serieRow.appendChild(checkSerie);
+  serieRow.appendChild(btnDelete);
   seriesInputsDiv.appendChild(serieRow);
 
   // --- BOTÓN "+ SERIE" ---
@@ -1852,9 +2097,36 @@ listaEjerciciosExtra?.addEventListener('click', (e) => {
 
   // --- ARMAR TARJETA ---
   card.appendChild(header);
-  if (descEl) card.appendChild(descEl);
+  card.appendChild(notasTextarea);
   card.appendChild(seriesInputsDiv);
   card.appendChild(btnSerieWrapper);
+
+  return card;
+}
+
+// ============================================================
+// Escuchamos clics en la lista de ejercicios extra. Si el clic
+// fue en un botón con data-action="add-extra-ejercicio", buscamos
+// el ejercicio en el catálogo y lo inyectamos al DOM.
+listaEjerciciosExtra?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action="add-extra-ejercicio"]');
+  if (!btn) return;
+
+  // Buscamos el item de la lista que contiene el botón
+  const item = btn.closest('.ejercicio-list-item');
+  if (!item) return;
+
+  const ejercicioId = Number(item.dataset.ejercicioId);
+  if (!ejercicioId) return;
+
+  // Buscamos el ejercicio en el catálogo
+  const ejercicio = catalogoEjercicios.find((ej) => ej.id === ejercicioId);
+  if (!ejercicio) return;
+
+  // ============================================================
+  // CREAR TARJETA COMPLETA usando la función reutilizable
+  // ============================================================
+  const card = crearCardEjercicioExtra(ejercicio, window.notesCache?.[ejercicio.id] || '');
 
   // Si el contenedor tenía un mensaje vacío (rutina sin ejercicios),
   // removerlo antes de agregar el primer ejercicio extra
@@ -1865,6 +2137,7 @@ listaEjerciciosExtra?.addEventListener('click', (e) => {
   // (ANTES se insertaba fuera y por eso no funcionaba ni el
   //  botón eliminar ni el filtro anti-duplicados)
   contenedorEl?.appendChild(card);
+  guardarEstadoEntrenamiento();
 
   // Refrescar la lista de extra: el ejercicio agregado
   // desaparece del panel (anti-duplicados) y respeta el filtro activo
@@ -1994,9 +2267,11 @@ btnFinalizar?.addEventListener('click', async () => {
     const tieneDatos = series.length > 0;
 
     if (tieneDatos) {
+      const textarea = card.querySelector('.ejercicio-notas');
       ejercicios.push({
         ejercicio_id: ejercicioId,
         series: series,
+        notas: textarea?.value || null,
       });
     }
   }
@@ -2103,6 +2378,7 @@ btnFinalizar?.addEventListener('click', async () => {
 
     // 1. Mostrar banner de éxito rápido
     mostrarExito('✅ ¡Entrenamiento guardado!');
+    limpiarEstadoEntrenamiento();
 
     // 2. Limpiar vista y volver al Dashboard después de 1.5s
     setTimeout(limpiarVistaEntrenamiento, 1500);
@@ -2134,6 +2410,7 @@ btnFinalizar?.addEventListener('click', async () => {
 btnDescartar?.addEventListener('click', () => {
   const confirmacion = confirm('¿Estás seguro de que deseas descartar el entrenamiento en progreso?');
   if (confirmacion) {
+    limpiarEstadoEntrenamiento();
     limpiarVistaEntrenamiento();
   }
 });
@@ -2176,6 +2453,9 @@ function limpiarVistaEntrenamiento() {
   if (listaEjerciciosExtra) {
     listaEjerciciosExtra.innerHTML = '<div class="loading" style="padding: 14px 0;">Cargando ejercicios...</div>';
   }
+
+  // Limpiar cache de notas
+  window.notesCache = {};
 
   // Restaurar título
   if (nombreEl) nombreEl.textContent = 'Cargando rutina...';
@@ -2230,6 +2510,95 @@ function limpiarInputs() {
 }
 
 // ============================================================
+// EVENTO: ELIMINAR RUTINA (borrado lógico)
+// ============================================================
+// Delegación de eventos sobre el contenedor de rutinas.
+// El botón .btn-eliminar-rutina se genera dinámicamente
+// en cargarRutinasUsuario(), por eso usamos delegación.
+document.querySelector('#rutinas-view')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.btn-eliminar-rutina');
+  if (!btn) return;
+
+  // Evitar que el clic en eliminar active la navegación a la rutina
+  e.stopPropagation();
+
+  const id = Number(btn.dataset.rutinaId);
+  const nombre = btn.dataset.rutinaNombre;
+
+  if (!confirm(`¿Estás seguro de que deseas eliminar la rutina "${nombre}"? Esta acción no borrará tu historial de entrenamientos.`)) return;
+
+  try {
+    const res = await fetch(`/api/rutinas/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + getToken() },
+    });
+
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      mostrarLogin();
+      return;
+    }
+
+    if (!res.ok) {
+      alert('Error al eliminar la rutina');
+      return;
+    }
+
+    // Remover la tarjeta del DOM inmediatamente
+    btn.closest('.rutina-card')?.remove();
+  } catch (err) {
+    console.error('Error al eliminar rutina:', err);
+  }
+});
+
+// ============================================================
+// LIGHTBOX — Abrir al hacer clic en una imagen de ejercicio
+// ============================================================
+// Delegación global: captura clics en .img-ejercicio-thumb
+// (imágenes en listas y modales) y en .card-img img (si
+// alguna card tuviera imagen en el futuro).
+document.addEventListener('click', (e) => {
+  const img = e.target.closest('.img-ejercicio-thumb, .card-img img');
+  if (!img) return;
+
+  // Buscar datos del ejercicio en el DOM
+  const card = img.closest('.ejercicio-list-item, .card');
+  if (!card) return;
+
+  const nombre = card.querySelector('.ejercicio-nombre, .card-title')?.textContent || '';
+  const descEl = card.querySelector('.card-descripcion');
+  const desc = descEl?.textContent || '';
+  const src = img.src || '';
+
+  if (!src) return;
+
+  lightboxImg.src = src;
+  lightboxName.textContent = nombre;
+  lightboxDesc.textContent = desc;
+  lightbox.classList.remove('hidden');
+});
+
+// ============================================================
+// LIGHTBOX — Cerrar
+// ============================================================
+function cerrarLightbox() {
+  lightbox.classList.add('hidden');
+  lightboxImg.src = '';
+}
+
+lightboxClose?.addEventListener('click', cerrarLightbox);
+
+lightbox?.addEventListener('click', (e) => {
+  if (e.target === lightbox) cerrarLightbox();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && lightbox && !lightbox.classList.contains('hidden')) {
+    cerrarLightbox();
+  }
+});
+
+// ============================================================
 // INICIALIZACIÓN AL CARGAR LA PÁGINA
 // ============================================================
 // Al cargar la página, verificamos si hay un token guardado.
@@ -2241,12 +2610,17 @@ function limpiarInputs() {
 //      o usando la pestaña de navegación.
 //
 // Si no existe: mostramos el formulario de login.
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const token = getToken();
   if (token) {
-    mostrarApp();
-    mostrarVistaRutinas();
-    cargarRutinasUsuario();
+    // Intentar restaurar un entrenamiento guardado (Hito 14)
+    const restaurado = await restaurarEstadoEntrenamiento();
+    if (!restaurado) {
+      // No había draft o falló la restauración → flujo normal
+      mostrarApp();
+      mostrarVistaRutinas();
+      cargarRutinasUsuario();
+    }
   } else {
     mostrarLogin();
   }
