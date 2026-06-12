@@ -58,12 +58,12 @@
 La base de datos real se llama **`fitness_app`** (no `blackterz`). Fue creada en un proyecto anterior y reutilizada acá. Contiene las tablas:
 
 - `usuarios` — id, nombre, email, password, created_at, **activo** (soft delete), **avatar_url** (foto de perfil)
-- `rutinas` — id, usuario_id, nombre, descripcion, notas
+- `rutinas` — id, usuario_id, nombre, descripcion, activa, created_at, updated_at
 - `ejercicios` — id, nombre, descripcion, categoria, imagen_url
 - `ejercicios_rutinas` — id, rutina_id, ejercicio_id, orden, series, repeticiones, peso
-- `sesiones_entrenamiento` — id, usuario_id, rutina_id, fecha, notas, **duracion_minutos**
+- `sesiones_entrenamiento` — id, usuario_id, rutina_id, fecha, notas, duracion_minutos
 - `sesion_ejercicios` — id, sesion_id, ejercicio_id, notas
-- `sesion_series` — id, sesion_ejercicio_id, numero_serie, repeticiones, peso
+- `sesion_series` — id, sesion_ejercicio_id, numero_serie, repeticiones, peso, tiempo_descanso, duracion_segundos, completada, created_at
 
 ---
 
@@ -81,7 +81,8 @@ Proyecto_Blackterz/
 │   ├── GUIA-TECNICA.md           ← Este archivo 🎯
 │   ├── migracion-activo.sql      ← Migración: columna activo (soft delete)
 │   ├── migracion-avatar.sql      ← Migración: columna avatar_url
-│   └── migracion-hito13.sql      ← Migración: columna activa en rutinas
+│   ├── migracion-hito13.sql      ← Migración: columna activa en rutinas
+│   └── migracion-dropear-notas.sql ← Migración: dropear columnas notas sin uso
 ├── public/                       ← Frontend (estático)
 │   ├── index.html                ← Página principal con login + registro + rutina + perfil + modales
 │   ├── styles.css                ← Dark mode + cards + buscador + responsive + floating timer
