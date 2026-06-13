@@ -57,7 +57,7 @@ async function getRutina(req, res) {
     // ============================================================
     // El controlador NO SABE qué SQL se ejecuta. Solo sabe
     // que si le pasa un ID, recibe una rutina con ejercicios.
-    const rutina = await obtenerRutinaConEjercicios(rutinaId);
+    const rutina = await obtenerRutinaConEjercicios(rutinaId, req.usuario.usuario_id);
 
     // ============================================================
     // 4. VERIFICAR SI LA RUTINA EXISTE

@@ -316,6 +316,35 @@ function limpiarEstadoEntrenamiento() {
   localStorage.removeItem('entrenamiento_draft');
 }
 
+// ============================================================
+// limpiarEstadoDeEmergencia() — Destrucción de draft zombie
+// ============================================================
+// Elimina TODAS las claves de sesión/draft del localStorage.
+// No recarga — solo limpia para que el dashboard fluya normal.
+//
+// ¿CUÁNDO SE USA?
+//   Cuando restaurarEstadoEntrenamiento() detecta un draft
+//   inválido (404/403) que pertenece a otro usuario o a una
+//   rutina eliminada.
+function limpiarEstadoDeEmergencia() {
+  // Keys conocidas de la app
+  localStorage.removeItem('entrenamiento_draft');
+  localStorage.removeItem('entrenamiento_en_curso');
+  localStorage.removeItem('draft_rutina_id');
+}
+
+// extraerUsuarioIdDelToken() — Lee el usuario_id del JWT sin verificar firma
+function extraerUsuarioIdDelToken() {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.usuario_id || null;
+  } catch {
+    return null;
+  }
+}
+
 // restaurarEstadoEntrenamiento() — Intenta recuperar un draft
 // guardado. Si existe y la rutina sigue disponible, restaura
 // el estado visual (checkboxes, notas) y el temporizador.
@@ -330,13 +359,27 @@ async function restaurarEstadoEntrenamiento() {
   try { draft = JSON.parse(raw); } catch { return false; }
   if (!draft.rutinaActualId) return false;
 
+  const usuarioId = extraerUsuarioIdDelToken();
+  const usuarioNombre = extraerNombreDelToken() || 'desconocido';
+  console.log(`Intentando restaurar rutina ID: ${draft.rutinaActualId} para usuario: ${usuarioNombre} (ID: ${usuarioId})`);
+
   try {
     const res = await fetch(`/api/rutinas/${draft.rutinaActualId}`, {
       headers: { 'Authorization': 'Bearer ' + getToken() }
     });
-    if (!res.ok) return false;
+    if (!res.ok) {
+      // Draft inválido (rutina no existe, no pertenece al usuario o fue eliminada)
+      console.warn(`Draft detectado pero no pertenece a este usuario (${res.status}). Limpiando...`);
+      limpiarEstadoDeEmergencia();
+      return false;
+    }
     const json = await res.json();
-    if (!json.data) return false;
+    if (!json.data) {
+      // Datos vacíos, limpiar draft corrupto
+      console.warn('Draft con datos vacíos. Limpiando...');
+      limpiarEstadoDeEmergencia();
+      return false;
+    }
     const rutina = json.data;
 
     // Renderizar la rutina usando la función existente
@@ -2825,6 +2868,9 @@ document.querySelector('#rutinas-view')?.addEventListener('click', async (e) => 
 
     // Remover la tarjeta del DOM inmediatamente
     btn.closest('.rutina-card')?.remove();
+
+    // Refrescar desde el servidor para sincronizar estado
+    await cargarRutinasUsuario();
   } catch (err) {
     console.error('Error al eliminar rutina:', err);
   }

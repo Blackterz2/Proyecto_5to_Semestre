@@ -37,7 +37,7 @@ const pool = require('../config/db');
 // Retorna:
 //   { id, nombre, descripcion, ejercicios: [...] }
 //   o null si la rutina no existe
-async function obtenerRutinaConEjercicios(rutinaId) {
+async function obtenerRutinaConEjercicios(rutinaId, usuarioId) {
   // ============================================================
   // CONSULTA SQL con JOIN
   // ============================================================
@@ -70,7 +70,7 @@ async function obtenerRutinaConEjercicios(rutinaId) {
     FROM rutinas r
     LEFT JOIN ejercicios_rutinas er ON r.id = er.rutina_id
     LEFT JOIN ejercicios e ON er.ejercicio_id = e.id
-    WHERE r.id = ?
+    WHERE r.id = ? AND r.usuario_id = ? AND r.activa = TRUE
     ORDER BY er.orden ASC
   `;
 
@@ -85,7 +85,7 @@ async function obtenerRutinaConEjercicios(rutinaId) {
   // Devuelve [rows, fields]:
   //   - rows:   array de objetos (las filas resultantes)
   //   - fields: metadatos de las columnas (no lo usamos)
-  const [rows] = await pool.execute(sql, [rutinaId]);
+  const [rows] = await pool.execute(sql, [rutinaId, usuarioId]);
 
   // ============================================================
   // ¿LA RUTINA EXISTE?
