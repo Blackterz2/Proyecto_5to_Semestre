@@ -181,7 +181,7 @@
               Seleccioná una rutina para entrenar o creá una nueva.
             </p>
           </div>
-          <div id="rutinas-container" class="rutinas-grid">
+          <div id="rutinas-container">
             <div class="loading">Cargando rutinas...</div>
           </div>
           <div id="limite-msg" class="limite-msg hidden">
@@ -451,27 +451,46 @@
   ============================================================ -->
   <div id="modal-onboarding" class="modal-onboarding hidden">
     <div class="onboarding-content">
-      <h2>👋 ¡Bienvenido a Blackterz!</h2>
-      <p>Antes de empezar, contanos un poco sobre vos</p>
-      <form id="form-onboarding">
-        <label>Nivel de experiencia</label>
-        <select name="nivel_experiencia" required>
-          <option value="Principiante">Principiante</option>
-          <option value="Intermedio">Intermedio</option>
-          <option value="Avanzado">Avanzado</option>
-        </select>
-        <label>Sexo</label>
-        <select name="sexo" required>
-          <option value="Masculino">Masculino</option>
-          <option value="Femenino">Femenino</option>
-          <option value="Otro">Otro</option>
-        </select>
-        <label>Peso actual (kg)</label>
-        <input type="number" name="peso_actual" step="0.1" min="1" max="300" placeholder="Ej: 70.5">
-        <label>Estatura (cm)</label>
-        <input type="number" name="estatura_cm" min="50" max="300" placeholder="Ej: 175">
-        <button type="submit" class="btn-onboarding-submit">Comenzar</button>
-      </form>
+      <!-- PASO 1: FORMULARIO -->
+      <div id="onboarding-step-form">
+        <h2>👋 ¡Bienvenido a Blackterz!</h2>
+        <p>Antes de empezar, contanos un poco sobre vos</p>
+        <form id="form-onboarding">
+          <label>Nivel de experiencia</label>
+          <select name="nivel_experiencia" required>
+            <option value="Principiante">Principiante</option>
+            <option value="Intermedio">Intermedio</option>
+            <option value="Avanzado">Avanzado</option>
+          </select>
+          <label>Sexo</label>
+          <select name="sexo" required>
+            <option value="Masculino">Masculino</option>
+            <option value="Femenino">Femenino</option>
+            <option value="Otro">Otro</option>
+          </select>
+          <label>Peso actual (kg)</label>
+          <input type="number" name="peso_actual" step="0.1" min="1" max="300" placeholder="Ej: 70.5">
+          <label>Estatura (cm)</label>
+          <input type="number" name="estatura_cm" min="50" max="300" placeholder="Ej: 175">
+          <button type="submit" class="btn-onboarding-submit">Siguiente</button>
+        </form>
+      </div>
+
+      <!-- PASO 2: PREGUNTA DE RECOMENDACIÓN -->
+      <div id="onboarding-step-pregunta" class="hidden">
+        <h2>💪 ¿Querés una rutina inicial?</h2>
+        <p>Podemos recomendarte una rutina personalizada según tu perfil físico para que arranques con el pie derecho.</p>
+        <div class="onboarding-botones">
+          <button id="btn-recomendacion-si" class="btn-onboarding-submit">Sí, por favor</button>
+          <button id="btn-recomendacion-no" class="btn-onboarding-secondary">No, gracias</button>
+        </div>
+      </div>
+
+      <!-- PASO 3: SPINNER / CARGA -->
+      <div id="onboarding-step-spinner" class="hidden">
+        <div class="onboarding-spinner"></div>
+        <p class="onboarding-spinner-text">Analizando perfil y creando rutina recomendada...</p>
+      </div>
     </div>
   </div>
 

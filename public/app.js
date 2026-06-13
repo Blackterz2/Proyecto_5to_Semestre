@@ -83,8 +83,16 @@ const toggleToLogin       = document.getElementById('toggle-to-login');
 const btnEliminarCuenta   = document.getElementById('btn-eliminar-cuenta');
 
 // Onboarding
-const modalOnboarding = document.getElementById('modal-onboarding');
-const formOnboarding  = document.getElementById('form-onboarding');
+const modalOnboarding      = document.getElementById('modal-onboarding');
+const formOnboarding       = document.getElementById('form-onboarding');
+const stepForm             = document.getElementById('onboarding-step-form');
+const stepPregunta         = document.getElementById('onboarding-step-pregunta');
+const stepSpinner          = document.getElementById('onboarding-step-spinner');
+const btnRecomendacionSi   = document.getElementById('btn-recomendacion-si');
+const btnRecomendacionNo   = document.getElementById('btn-recomendacion-no');
+
+// Datos del formulario de onboarding (se guardan al hacer submit)
+let onboardingData = null;
 
 // ============================================================
 // PANEL DE DETALLE DE EJERCICIO (Hito 15)
@@ -169,6 +177,14 @@ function extraerNombreDelToken() {
     return null;
   }
 }
+
+// ============================================================
+// ESTADO TEMPORAL DE SELECCIÓN PARA MODAL DE EJERCICIOS
+// ============================================================
+// Set de IDs de ejercicios seleccionados en el modal. Se usa
+// para preservar la selección cuando el usuario filtra/busca
+// y el DOM se redibuja.
+let ejerciciosSeleccionadosTemp = new Set();
 
 // ============================================================
 // ONBOARDING — Modal bloqueante para nuevos usuarios
@@ -728,6 +744,7 @@ async function renderizarCheckboxesEnModal(terminoBusqueda) {
   for (const ej of lista) {
     const categoria = ej.categoria || 'general';
     const musculos = ej.musculos ? ` | ${ej.musculos}` : '';
+    const checked = ejerciciosSeleccionadosTemp.has(ej.id) ? ' checked' : '';
     html += `
       <div class="ejercicio-list-item" data-ejercicio-id="${ej.id}">
         ${renderizarImagenEjercicio(ej)}
@@ -735,7 +752,7 @@ async function renderizarCheckboxesEnModal(terminoBusqueda) {
           <div class="ejercicio-nombre">${ej.nombre}</div>
           <div class="ejercicio-categoria">${categoria}${musculos}</div>
         </div>
-        <input type="checkbox" id="check-ej-${ej.id}" value="${ej.id}" class="check-ejercicio" />
+        <input type="checkbox" id="check-ej-${ej.id}" value="${ej.id}" class="check-ejercicio"${checked} />
       </div>
     `;
   }
@@ -1210,22 +1227,31 @@ async function cargarHistorial() {
         perfilAvatarImg.src = usuario.avatar_url;
         perfilAvatarImg.classList.remove('hidden');
       } else if (perfilAvatarImg) {
-        // Sin foto: limpiar src para que no herede la foto
-        // del usuario anterior (estado residual entre sesiones)
-        perfilAvatarImg.src = '';
+        // Sin foto: mostrar avatar generado con iniciales
+        const nombre = usuario.nombre || 'Usuario';
+        perfilAvatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(nombre)}&background=e94560&color=fff&size=128&font-size=0.4&rounded=true`;
+        perfilAvatarImg.classList.remove('hidden');
       }
     } else {
       // Fallback al JWT si falla el endpoint
       const email = extraerEmailDelToken();
       if (perfilEmail) perfilEmail.textContent = email || 'usuario@email.com';
-      if (perfilNombre) perfilNombre.textContent = extraerNombreDelToken() || 'Usuario';
-      if (perfilAvatarImg) perfilAvatarImg.src = ''; // limpiar foto residual
+      const nombre = extraerNombreDelToken() || 'Usuario';
+      if (perfilNombre) perfilNombre.textContent = nombre;
+      if (perfilAvatarImg) {
+        perfilAvatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(nombre)}&background=e94560&color=fff&size=128&font-size=0.4&rounded=true`;
+        perfilAvatarImg.classList.remove('hidden');
+      }
     }
   } catch {
     // Si hay error de red, usar datos del JWT como fallback
     if (perfilEmail) perfilEmail.textContent = extraerEmailDelToken() || 'usuario@email.com';
-    if (perfilNombre) perfilNombre.textContent = extraerNombreDelToken() || 'Usuario';
-    if (perfilAvatarImg) perfilAvatarImg.src = ''; // limpiar foto residual
+    const nombre = extraerNombreDelToken() || 'Usuario';
+    if (perfilNombre) perfilNombre.textContent = nombre;
+    if (perfilAvatarImg) {
+      perfilAvatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(nombre)}&background=e94560&color=fff&size=128&font-size=0.4&rounded=true`;
+      perfilAvatarImg.classList.remove('hidden');
+    }
   }
 
   try {
@@ -1390,18 +1416,33 @@ async function cargarRutinasUsuario() {
     if (datos.status !== 'ok' || !datos.data) return;
 
     const rutinas = datos.data;
-    const total = rutinas.length;
+    const recomendadas = rutinas.filter(r => r.es_recomendada);
+    const misRutinas   = rutinas.filter(r => !r.es_recomendada);
+    const total = misRutinas.length;
     const limite = total >= 4;
-
-    // ============================================================
-    // RENDERIZAR GRILLA DE RUTINAS
-    // ============================================================
     let html = '';
 
-    for (const rutina of rutinas) {
+    // Sección: Recomendadas
+    if (recomendadas.length > 0) {
+      html += `<h3 class="dashboard-section-title">⭐ Recomendadas</h3><div class="rutinas-grid">`;
+      for (const rutina of recomendadas) {
+        const totalEj = rutina.total_ejercicios || 0;
+        const textoEj = totalEj === 1 ? '1 ejercicio' : totalEj + ' ejercicios';
+        html += `
+          <div class="rutina-card rutina-card--recomendada" data-rutina-id="${rutina.id}">
+            <div class="rutina-card-nombre">${rutina.nombre}</div>
+            <div class="rutina-card-ejercicios">${textoEj}</div>
+          </div>
+        `;
+      }
+      html += `</div>`;
+    }
+
+    // Sección: Mis Rutinas
+    html += `<h3 class="dashboard-section-title">📋 Mis Rutinas</h3><div class="rutinas-grid">`;
+    for (const rutina of misRutinas) {
       const totalEj = rutina.total_ejercicios || 0;
       const textoEj = totalEj === 1 ? '1 ejercicio' : totalEj + ' ejercicios';
-
       html += `
         <div class="rutina-card" data-rutina-id="${rutina.id}">
           <button class="btn-eliminar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}">🗑️</button>
@@ -1411,7 +1452,7 @@ async function cargarRutinasUsuario() {
       `;
     }
 
-    // Tarjeta para "Añadir nueva" (solo si no se alcanzó el límite)
+    // Tarjeta para "Añadir nueva" (solo si no se alcanzó el límite y en Mis Rutinas)
     if (!limite) {
       html += `
         <div id="btn-add-rutina" class="rutina-card rutina-card--add">
@@ -1419,6 +1460,7 @@ async function cargarRutinasUsuario() {
         </div>
       `;
     }
+    html += `</div>`;
 
     rutinasContainer.innerHTML = html;
 
@@ -1437,7 +1479,10 @@ async function cargarRutinasUsuario() {
     // Cada tarjeta de rutina navega a la vista "Entrenar" con
     // el ID de esa rutina.
     document.querySelectorAll('.rutina-card[data-rutina-id]').forEach((card) => {
-      card.addEventListener('click', () => {
+      card.addEventListener('click', (e) => {
+        // No navegar a Entrenar si se clickeó el botón eliminar
+        if (e.target.closest('.btn-eliminar-rutina')) return;
+
         const id = Number(card.dataset.rutinaId);
         if (!id) return;
 
@@ -1478,6 +1523,9 @@ function abrirModal() {
     btnModalCrear.disabled = false;
     btnModalCrear.textContent = 'Crear rutina';
 
+    // Limpiar selección temporal al abrir el modal
+    ejerciciosSeleccionadosTemp.clear();
+
     // Cargar catálogo y dibujar checkboxes (Hito 11 Parte 3)
     renderizarCheckboxesEnModal();
   }
@@ -1507,18 +1555,9 @@ async function crearNuevaRutina(nombre) {
     // ============================================================
     // RECOLECTAR EJERCICIOS SELECCIONADOS (Hito 11 Parte 3)
     // ============================================================
-    // Recorremos los checkboxes del modal y armamos un array
-    // con los IDs de los ejercicios seleccionados.
-    const checkboxes = modalEjercicios?.querySelectorAll(
-      '.check-ejercicio:checked'
-    );
-    const ejercicios_ids = [];
-    if (checkboxes) {
-      checkboxes.forEach((cb) => {
-        const id = Number(cb.value);
-        if (id) ejercicios_ids.push(id);
-      });
-    }
+    // Leemos del Set temporal (preservado aunque el DOM se haya
+    // redibujado por filtros de búsqueda).
+    const ejercicios_ids = Array.from(ejerciciosSeleccionadosTemp);
 
     const body = { nombre: nombre.trim() };
     if (ejercicios_ids.length > 0) {
@@ -1842,37 +1881,81 @@ toggleToLogin?.addEventListener('click', mostrarAuthLogin);
 regForm?.addEventListener('submit', manejarRegistro);
 
 // ============================================================
-// ONBOARDING FORM — Submit handler
+// ONBOARDING FORM — Paso 1: guardar datos, mostrar pregunta
 // ============================================================
-formOnboarding?.addEventListener('submit', async (e) => {
+formOnboarding?.addEventListener('submit', (e) => {
   e.preventDefault();
   const fd = new FormData(formOnboarding);
-  const data = {
+  onboardingData = {
     nivel_experiencia: fd.get('nivel_experiencia'),
     sexo: fd.get('sexo'),
     peso_actual: fd.get('peso_actual') ? Number(fd.get('peso_actual')) : null,
     estatura_cm: fd.get('estatura_cm') ? Number(fd.get('estatura_cm')) : null,
   };
+  // Ocultar formulario, mostrar pregunta
+  stepForm?.classList.add('hidden');
+  stepPregunta?.classList.remove('hidden');
+});
+
+// ============================================================
+// ONBOARDING — Paso 2: el usuario decide si quiere recomendación
+// ============================================================
+function enviarOnboarding(quiereRecomendacion) {
+  if (!onboardingData) return;
+
+  // Si el usuario aceptó y es principiante → mostrar spinner
+  if (quiereRecomendacion && onboardingData.nivel_experiencia === 'Principiante') {
+    stepPregunta?.classList.add('hidden');
+    stepSpinner?.classList.remove('hidden');
+    // Labor Illusion: 2.5s de delay para simular procesamiento
+    setTimeout(() => {
+      enviarPostOnboarding(quiereRecomendacion);
+    }, 2500);
+  } else {
+    // No quiere recomendación, o no es principiante → POST directo
+    enviarPostOnboarding(quiereRecomendacion);
+  }
+}
+
+async function enviarPostOnboarding(quiereRecomendacion) {
   try {
+    const body = { ...onboardingData, quiere_recomendacion: quiereRecomendacion };
     const res = await fetch('/api/usuarios/onboarding', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify(body),
     });
     if (res.ok) {
       ocultarModalOnboarding();
-      // Refresh: if currently on rutinas view, reload them
+      // Resetear el modal para el próximo usuario
+      stepSpinner?.classList.add('hidden');
+      stepPregunta?.classList.add('hidden');
+      stepForm?.classList.remove('hidden');
+      formOnboarding?.reset();
+      onboardingData = null;
+      // Refrescar lista de rutinas
       if (typeof cargarRutinas === 'function') cargarRutinas();
-      // Also refresh the user's routine list
       cargarRutinasUsuario();
     } else {
       const errData = await res.json();
       console.error('Onboarding error:', errData.message);
+      // Volver al formulario en caso de error
+      stepSpinner?.classList.add('hidden');
+      stepPregunta?.classList.add('hidden');
+      stepForm?.classList.remove('hidden');
+      onboardingData = null;
     }
   } catch (err) {
     console.error('Onboarding error:', err);
+    stepSpinner?.classList.add('hidden');
+    stepPregunta?.classList.add('hidden');
+    stepForm?.classList.remove('hidden');
+    onboardingData = null;
   }
-});
+}
+
+btnRecomendacionSi?.addEventListener('click', () => enviarOnboarding(true));
+btnRecomendacionNo?.addEventListener('click', () => enviarOnboarding(false));
 
 // ============================================================
 // SUBIR AVATAR (foto de perfil)
@@ -2035,6 +2118,25 @@ abrirModal = function () {
   if (buscadorModal) buscadorModal.value = '';
   _abrirModalOriginal();
 };
+
+// ============================================================
+// DELEGACIÓN: sincronizar checkboxes del modal con el Set
+// ============================================================
+// Cada vez que el usuario marca/desmarca un checkbox en el
+// modal de ejercicios, actualizamos ejerciciosSeleccionadosTemp.
+// Esto permite que al filtrar/buscar (que redibuja el DOM)
+// la selección se preserve.
+document.addEventListener('change', (e) => {
+  const cb = e.target.closest('.check-ejercicio');
+  if (!cb) return;
+  const id = Number(cb.value);
+  if (!id) return;
+  if (cb.checked) {
+    ejerciciosSeleccionadosTemp.add(id);
+  } else {
+    ejerciciosSeleccionadosTemp.delete(id);
+  }
+});
 
 // ============================================================
 // CACHE DE NOTAS POR EJERCICIO

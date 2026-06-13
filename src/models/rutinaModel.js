@@ -164,7 +164,7 @@ async function obtenerRutinaConEjercicios(rutinaId) {
 // El usuario_id viene del JWT, NO del body.
 // Esto previene que un usuario cree rutinas en nombre de otro.
 async function contarRutinasUsuario(usuario_id) {
-  const sql = 'SELECT COUNT(*) AS total FROM rutinas WHERE usuario_id = ?';
+  const sql = "SELECT COUNT(*) AS total FROM rutinas WHERE usuario_id = ? AND activa = TRUE AND es_recomendada = FALSE";
   const [rows] = await pool.execute(sql, [usuario_id]);
   return rows[0].total;
 }
@@ -220,6 +220,7 @@ async function obtenerRutinasPorUsuario(usuario_id) {
       r.nombre,
       r.descripcion,
       r.created_at,
+      r.es_recomendada,
       (SELECT COUNT(*) FROM ejercicios_rutinas WHERE rutina_id = r.id) AS total_ejercicios
     FROM rutinas r
     WHERE r.usuario_id = ? AND r.activa = TRUE

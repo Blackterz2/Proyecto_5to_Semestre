@@ -174,16 +174,17 @@ async function subirAvatar(req, res) {
 // ============================================================
 // postOnboarding(req, res) - POST /api/usuarios/onboarding
 // ============================================================
-// Recibe { nivel_experiencia, sexo, peso_actual, estatura_cm }
-// Si nivel_experiencia es 'Principiante', calcula el IMC y
-// asigna una rutina inteligente según el resultado:
+// Recibe { nivel_experiencia, sexo, peso_actual, estatura_cm,
+//          quiere_recomendacion }
+// Si quiere_recomendacion es true y es Principiante, calcula el
+// IMC y asigna una rutina inteligente según el resultado:
 //   IMC >= 25 → Bajo Impacto
 //   IMC < 25 + Masculino → Fuerza Base
 //   IMC < 25 + Femenino → Tonificación
 async function postOnboarding(req, res) {
   try {
     const usuarioId = req.usuario.usuario_id;
-    const { nivel_experiencia, sexo, peso_actual, estatura_cm } = req.body;
+    const { nivel_experiencia, sexo, peso_actual, estatura_cm, quiere_recomendacion } = req.body;
 
     // Validar campo obligatorio
     if (!nivel_experiencia) {
@@ -240,10 +241,10 @@ async function postOnboarding(req, res) {
     }
 
     // ============================================================
-    // REGLA DE NEGOCIO: Auto-rutina inteligente para Principiantes
-    // Basada en IMC (Índice de Masa Corporal) y Sexo
+    // REGLA DE NEGOCIO: Auto-rutina recomendada (solo si el
+    // usuario la aceptó explícitamente y es Principiante)
     // ============================================================
-    if (nivel_experiencia === 'Principiante') {
+    if (quiere_recomendacion && nivel_experiencia === 'Principiante') {
       const connection = await pool.getConnection();
       try {
         await connection.beginTransaction();
@@ -291,9 +292,9 @@ async function postOnboarding(req, res) {
           busquedas = ['%sentadilla%', '%press de banca%', '%remo%'];
         }
 
-        // Crear rutina
+        // Crear rutina con es_recomendada = TRUE
         const [rutinaResult] = await connection.execute(
-          `INSERT INTO rutinas (usuario_id, nombre, descripcion) VALUES (?, ?, ?)`,
+          `INSERT INTO rutinas (usuario_id, nombre, descripcion, es_recomendada) VALUES (?, ?, ?, TRUE)`,
           [usuarioId, rutinaNombre, rutinaDesc]
         );
         const rutinaId = rutinaResult.insertId;
