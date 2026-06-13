@@ -447,6 +447,35 @@
   </footer>
 
   <!-- ============================================================
+  MODAL ONBOARDING — Bloqueante, sin Escape/click-outside
+  ============================================================ -->
+  <div id="modal-onboarding" class="modal-onboarding hidden">
+    <div class="onboarding-content">
+      <h2>👋 ¡Bienvenido a Blackterz!</h2>
+      <p>Antes de empezar, contanos un poco sobre vos</p>
+      <form id="form-onboarding">
+        <label>Nivel de experiencia</label>
+        <select name="nivel_experiencia" required>
+          <option value="Principiante">Principiante</option>
+          <option value="Intermedio">Intermedio</option>
+          <option value="Avanzado">Avanzado</option>
+        </select>
+        <label>Sexo</label>
+        <select name="sexo" required>
+          <option value="Masculino">Masculino</option>
+          <option value="Femenino">Femenino</option>
+          <option value="Otro">Otro</option>
+        </select>
+        <label>Peso actual (kg)</label>
+        <input type="number" name="peso_actual" step="0.1" min="1" max="300" placeholder="Ej: 70.5">
+        <label>Estatura (cm)</label>
+        <input type="number" name="estatura_cm" min="50" max="300" placeholder="Ej: 175">
+        <button type="submit" class="btn-onboarding-submit">Comenzar</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================
   TOAST: notificación de restauración de entrenamiento
   ============================================================ -->
   <div id="toast-restore" class="toast-restore hidden">🔄 Entrenamiento restaurado</div>

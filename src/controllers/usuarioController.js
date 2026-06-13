@@ -12,7 +12,8 @@
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-const { desactivarUsuario, obtenerUsuarioPorId, actualizarAvatar } = require('../models/usuarioModel');
+const { desactivarUsuario, obtenerUsuarioPorId, actualizarAvatar, completarOnboarding } = require('../models/usuarioModel');
+const pool = require('../config/db');
 
 // ============================================================
 // CONFIGURACIÓN DE MULTER — Subida de avatares
@@ -170,4 +171,193 @@ async function subirAvatar(req, res) {
   }
 }
 
-module.exports = { eliminarCuenta, obtenerPerfil, subirAvatar, upload };
+// ============================================================
+// postOnboarding(req, res) - POST /api/usuarios/onboarding
+// ============================================================
+// Recibe { nivel_experiencia, sexo, peso_actual, estatura_cm }
+// Si nivel_experiencia es 'Principiante', calcula el IMC y
+// asigna una rutina inteligente según el resultado:
+//   IMC >= 25 → Bajo Impacto
+//   IMC < 25 + Masculino → Fuerza Base
+//   IMC < 25 + Femenino → Tonificación
+async function postOnboarding(req, res) {
+  try {
+    const usuarioId = req.usuario.usuario_id;
+    const { nivel_experiencia, sexo, peso_actual, estatura_cm } = req.body;
+
+    // Validar campo obligatorio
+    if (!nivel_experiencia) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'El campo nivel_experiencia es obligatorio',
+      });
+    }
+
+    const valoresValidos = ['Principiante', 'Intermedio', 'Avanzado'];
+    if (!valoresValidos.includes(nivel_experiencia)) {
+      return res.status(400).json({
+        status: 'error',
+        message: `nivel_experiencia debe ser uno de: ${valoresValidos.join(', ')}`,
+      });
+    }
+
+    // Validar sexo (opcional pero si viene, debe ser válido)
+    const sexosValidos = ['Masculino', 'Femenino', 'Otro'];
+    if (sexo !== undefined && sexo !== null && !sexosValidos.includes(sexo)) {
+      return res.status(400).json({
+        status: 'error',
+        message: `sexo debe ser uno de: ${sexosValidos.join(', ')}`,
+      });
+    }
+
+    // Validar campos opcionales (si vienen, deben ser números)
+    if (peso_actual !== undefined && peso_actual !== null && (isNaN(Number(peso_actual)) || Number(peso_actual) <= 0)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'peso_actual debe ser un número positivo',
+      });
+    }
+    if (estatura_cm !== undefined && estatura_cm !== null && (isNaN(Number(estatura_cm)) || Number(estatura_cm) <= 0)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'estatura_cm debe ser un número positivo',
+      });
+    }
+
+    const datos = {
+      nivel_experiencia,
+      sexo: sexo || 'Otro',
+      peso_actual: peso_actual ? Number(peso_actual) : null,
+      estatura_cm: estatura_cm ? Number(estatura_cm) : null,
+    };
+
+    const actualizado = await completarOnboarding(usuarioId, datos);
+    if (!actualizado) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Usuario no encontrado',
+      });
+    }
+
+    // ============================================================
+    // REGLA DE NEGOCIO: Auto-rutina inteligente para Principiantes
+    // Basada en IMC (Índice de Masa Corporal) y Sexo
+    // ============================================================
+    if (nivel_experiencia === 'Principiante') {
+      const connection = await pool.getConnection();
+      try {
+        await connection.beginTransaction();
+
+        // Calcular IMC
+        const peso = Number(peso_actual);
+        const altura = Number(estatura_cm);
+        let rutinaNombre, rutinaDesc, busquedas = [];
+
+        if (peso && altura && altura > 0) {
+          const imc = peso / Math.pow(altura / 100, 2);
+
+          if (imc >= 25) {
+            // Bajo Impacto — movilidad, sin saltos
+            rutinaNombre = 'Adaptación: Bajo Impacto';
+            rutinaDesc = 'Rutina de movilidad y ejercicios de bajo impacto. Ideal para empezar sin riesgos.';
+            busquedas = [
+              '%sentadilla con el peso corporal%',
+              '%press de banca con mancuernas%',
+              '%remo con mancuerna%',
+            ];
+          } else if (sexo === 'Masculino') {
+            // Fuerza Base — tren superior
+            rutinaNombre = 'Adaptación: Fuerza Base';
+            rutinaDesc = 'Rutina enfocada en desarrollar fuerza del tren superior. Ideal para tus primeros meses.';
+            busquedas = [
+              '%press de banca%',
+              '%remo con barra%',
+              '%press militar%',
+            ];
+          } else if (sexo === 'Femenino') {
+            // Tonificación — tren inferior
+            rutinaNombre = 'Adaptación: Tonificación';
+            rutinaDesc = 'Rutina enfocada en tonificar piernas y glúteos. Perfecta para tus primeros días.';
+            busquedas = [
+              '%sentadilla búlgara%',
+              '%empuje de cadera%',
+              '%curl femoral%',
+            ];
+          }
+        } else {
+          // Fallback si faltan peso/altura
+          rutinaNombre = 'Adaptación - Cuerpo Completo';
+          rutinaDesc = 'Rutina ideal para tus primeros días';
+          busquedas = ['%sentadilla%', '%press de banca%', '%remo%'];
+        }
+
+        // Crear rutina
+        const [rutinaResult] = await connection.execute(
+          `INSERT INTO rutinas (usuario_id, nombre, descripcion) VALUES (?, ?, ?)`,
+          [usuarioId, rutinaNombre, rutinaDesc]
+        );
+        const rutinaId = rutinaResult.insertId;
+
+        // Buscar ejercicios con fallbacks
+        const ejerciciosEncontrados = [];
+        for (const termino of busquedas) {
+          const [rows] = await connection.execute(
+            `SELECT id FROM ejercicios WHERE LOWER(nombre) LIKE LOWER(?) LIMIT 1`,
+            [termino]
+          );
+          if (rows.length > 0) {
+            ejerciciosEncontrados.push(rows[0].id);
+          }
+        }
+
+        // Generic fallback para búsquedas que no encontraron nada
+        const ejerciciosFallback = ['%sentadilla%', '%press%', '%remo%'];
+        for (let i = 0; i < ejerciciosFallback.length && ejerciciosEncontrados.length < 3; i++) {
+          const [rows] = await connection.execute(
+            `SELECT id FROM ejercicios WHERE LOWER(nombre) LIKE LOWER(?) LIMIT 1`,
+            [ejerciciosFallback[i]]
+          );
+          if (rows.length > 0 && !ejerciciosEncontrados.includes(rows[0].id)) {
+            ejerciciosEncontrados.push(rows[0].id);
+          }
+        }
+
+        // Insertar ejercicios_rutinas
+        const ordenes = [
+          { orden: 1, series: 3, repeticiones: 12 },
+          { orden: 2, series: 3, repeticiones: 12 },
+          { orden: 3, series: 3, repeticiones: 12 },
+        ];
+
+        for (let i = 0; i < ejerciciosEncontrados.length && i < 3; i++) {
+          await connection.execute(
+            `INSERT INTO ejercicios_rutinas (rutina_id, ejercicio_id, orden, series, repeticiones) VALUES (?, ?, ?, ?, ?)`,
+            [rutinaId, ejerciciosEncontrados[i], ordenes[i].orden, ordenes[i].series, ordenes[i].repeticiones]
+          );
+        }
+
+        await connection.commit();
+      } catch (txError) {
+        await connection.rollback();
+        console.error('Error en transacción de auto-rutina:', txError.message);
+        // No fallamos la respuesta — el onboarding ya se guardó
+      } finally {
+        connection.release();
+      }
+    }
+
+    res.json({
+      status: 'ok',
+      message: 'Onboarding completado',
+    });
+
+  } catch (error) {
+    console.error('Error en postOnboarding:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error interno del servidor',
+    });
+  }
+}
+
+module.exports = { eliminarCuenta, obtenerPerfil, subirAvatar, upload, postOnboarding };

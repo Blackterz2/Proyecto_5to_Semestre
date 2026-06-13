@@ -82,6 +82,10 @@ const toggleToLogin       = document.getElementById('toggle-to-login');
 // Eliminación de cuenta
 const btnEliminarCuenta   = document.getElementById('btn-eliminar-cuenta');
 
+// Onboarding
+const modalOnboarding = document.getElementById('modal-onboarding');
+const formOnboarding  = document.getElementById('form-onboarding');
+
 // ============================================================
 // PANEL DE DETALLE DE EJERCICIO (Hito 15)
 // ============================================================
@@ -115,6 +119,10 @@ let pendingRutinaId     = null;
 //   1. Renderizar los checkboxes en el modal de "Nueva Rutina"
 //   2. Poblar el <select> de "Agregar Ejercicio Extra"
 let catalogoEjercicios = [];
+
+// Hito 16: Caché de la última sesión para sobrecarga progresiva
+// { [ejercicio_id]: [{peso, repeticiones}, ...] } | null
+let ultimaSesionData = null;
 
 // Buscadores
 const buscadorModal  = document.getElementById('buscador-modal-ejercicios');
@@ -159,6 +167,40 @@ function extraerNombreDelToken() {
     return payload.nombre || null;
   } catch {
     return null;
+  }
+}
+
+// ============================================================
+// ONBOARDING — Modal bloqueante para nuevos usuarios
+// ============================================================
+
+function mostrarModalOnboarding() {
+  modalOnboarding?.classList.remove('hidden');
+}
+
+function ocultarModalOnboarding() {
+  modalOnboarding?.classList.add('hidden');
+}
+
+// ============================================================
+// verificarOnboarding() — Busca perfil y muestra modal si falta
+// ============================================================
+async function verificarOnboarding() {
+  const token = getToken();
+  if (!token) return;
+
+  try {
+    const res = await fetch('/api/usuarios/me', {
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    const usuario = json.data;
+    if (usuario && !usuario.onboarding_completado) {
+      mostrarModalOnboarding();
+    }
+  } catch (err) {
+    console.error('Error al verificar onboarding:', err.message);
   }
 }
 
@@ -377,16 +419,22 @@ async function restaurarEstadoEntrenamiento() {
             btnDelete.dataset.action = 'delete-serie';
             btnDelete.textContent = '🗑️';
 
+            row.appendChild(btnDelete);
             row.appendChild(label);
             row.appendChild(inputPeso);
             row.appendChild(inputReps);
             row.appendChild(checkSerie);
-            row.appendChild(btnDelete);
             seriesContainer.appendChild(row);
           });
         }
       }
     });
+
+    // Re-inyectar datos históricos (Hito 16) después de reconstruir
+    // las series del draft. El innerHTML = '' de arriba borró los
+    // .anterior-valor que ya había inyectado cargarRutina(), así
+    // que los volvemos a pintar con la data que ya está en memoria.
+    inyectarAnteriorEnCards();
 
     // Restaurar timer: detenemos el que inició cargarRutina
     // y lo reemplazamos con el tiempo guardado
@@ -409,6 +457,10 @@ async function restaurarEstadoEntrenamiento() {
       const ftd = document.getElementById('floating-timer-display');
       if (ftd) ftd.textContent = display;
     }, 1000);
+
+    // Hito 16: Cargar última sesión para sobrecarga progresiva
+    ultimaSesionData = null;
+    cargarUltimaSesion(rutinaActualId).then(() => inyectarAnteriorEnCards());
 
     mostrarToast('🔄 Entrenamiento restaurado');
     return true;
@@ -465,6 +517,74 @@ async function cargarCatalogoEjercicios() {
   }
 
   return catalogoEjercicios;
+}
+
+// ============================================================
+// cargarUltimaSesion(rutinaId) — Hito 16: Sobrecarga Progresiva
+// ============================================================
+// Obtiene la última sesión completada para esta rutina y
+// guarda los datos en ultimaSesionData para que la función
+// inyectarAnteriorEnCards() los muestre en las cards.
+async function cargarUltimaSesion(rutinaId) {
+  try {
+    const token = getToken();
+    if (!token) return;
+    const res = await fetch(`/api/sesiones/ultima/${rutinaId}`, {
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    if (res.ok) {
+      const json = await res.json();
+      ultimaSesionData = json.data ? json.data.ejercicios : null;
+    }
+  } catch (err) {
+    console.error('Error al cargar última sesión:', err);
+    ultimaSesionData = null;
+  }
+}
+
+// ============================================================
+// inyectarAnteriorEnCards() — Hito 16: Sobrecarga Progresiva
+// ============================================================
+// Recorre todas las cards de ejercicios en el DOM e inyecta
+// los valores de la sesión anterior al lado de cada serie.
+//
+// Comportamiento:
+//   - Si no hay datos globales, no hace nada.
+//   - Si un ejercicio no tiene historial, deja el espacio vacío.
+//   - Si ya se inyectó (detecta .anterior-valor existente), salta.
+//   - No muestra "ANTERIOR" como header — solo el valor (estilo limpio).
+function inyectarAnteriorEnCards() {
+  if (!ultimaSesionData) return;
+
+  document.querySelectorAll('#contenedor-ejercicios .card').forEach(card => {
+    const ejercicioId = Number(card.dataset.ejercicioId);
+    const seriesAnteriores = ultimaSesionData[ejercicioId];
+    if (!seriesAnteriores) return;
+
+    const rows = card.querySelectorAll('.serie-row');
+
+    rows.forEach((row, idx) => {
+      if (row.querySelector('.anterior-valor')) return;
+
+      const inputReps = row.querySelector('input[data-campo="repeticiones"]');
+      if (!inputReps) return;
+
+      const datos = seriesAnteriores[idx];
+      if (!datos) return;
+
+      const span = document.createElement('span');
+      span.className = 'anterior-valor';
+      span.textContent = `${datos.peso}kg x ${datos.repeticiones}`;
+      // Insertar DESPUÉS del checkbox (extremo derecho) para que
+      // quede simétrico al agregar series nuevas.
+      const checkSerie = row.querySelector('.check-serie');
+      if (checkSerie) {
+        checkSerie.parentNode.insertBefore(span, checkSerie.nextSibling);
+      } else {
+        inputReps.parentNode.insertBefore(span, inputReps.nextSibling);
+      }
+    });
+  });
 }
 
 // ============================================================
@@ -980,11 +1100,11 @@ async function cargarRutina(rutinaId) {
         btnDelete.dataset.action = 'delete-serie';
         btnDelete.textContent = '🗑️';
 
+        serieRow.appendChild(btnDelete);
         serieRow.appendChild(label);
         serieRow.appendChild(inputPeso);
         serieRow.appendChild(inputReps);
         serieRow.appendChild(checkSerie);
-        serieRow.appendChild(btnDelete);
         seriesInputsDiv.appendChild(serieRow);
       }
 
@@ -1024,6 +1144,15 @@ async function cargarRutina(rutinaId) {
     // Cargamos el catálogo si no está cacheado y poblamos el
     // panel con las opciones disponibles.
     poblarListaEjerciciosExtra(buscadorExtra?.value);
+
+    // ============================================================
+    // Hito 16: Cargar última sesión para sobrecarga progresiva
+    // ============================================================
+    ultimaSesionData = null;
+    if (rutinaId) {
+      await cargarUltimaSesion(rutinaId);
+      inyectarAnteriorEnCards();
+    }
 
   } catch (error) {
     console.error('Error:', error.message);
@@ -1607,6 +1736,9 @@ loginForm?.addEventListener('submit', async (e) => {
     mostrarVistaRutinas();
     await cargarRutinasUsuario();
 
+    // Verificar si el usuario completó el onboarding
+    verificarOnboarding();
+
   } catch (error) {
     console.error('Error de red:', error);
     if (loginError) {
@@ -1708,6 +1840,39 @@ toggleToLogin?.addEventListener('click', mostrarAuthLogin);
 
 // Submit del formulario de registro
 regForm?.addEventListener('submit', manejarRegistro);
+
+// ============================================================
+// ONBOARDING FORM — Submit handler
+// ============================================================
+formOnboarding?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(formOnboarding);
+  const data = {
+    nivel_experiencia: fd.get('nivel_experiencia'),
+    sexo: fd.get('sexo'),
+    peso_actual: fd.get('peso_actual') ? Number(fd.get('peso_actual')) : null,
+    estatura_cm: fd.get('estatura_cm') ? Number(fd.get('estatura_cm')) : null,
+  };
+  try {
+    const res = await fetch('/api/usuarios/onboarding', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (res.ok) {
+      ocultarModalOnboarding();
+      // Refresh: if currently on rutinas view, reload them
+      if (typeof cargarRutinas === 'function') cargarRutinas();
+      // Also refresh the user's routine list
+      cargarRutinasUsuario();
+    } else {
+      const errData = await res.json();
+      console.error('Onboarding error:', errData.message);
+    }
+  } catch (err) {
+    console.error('Onboarding error:', err);
+  }
+});
 
 // ============================================================
 // SUBIR AVATAR (foto de perfil)
@@ -1939,6 +2104,12 @@ contenedorEl?.addEventListener('click', (e) => {
       }
     });
 
+    // Remover el span .anterior-valor clonado (Hito 16).
+    // La fila nueva no tiene datos históricos reales — solo los
+    // heredó por el cloneNode(true) de la última fila existente.
+    const anteriorClonado = nuevaFila.querySelector('.anterior-valor');
+    if (anteriorClonado) anteriorClonado.remove();
+
     const totalFilas = seriesContainer.querySelectorAll('.serie-row').length;
     const label = nuevaFila.querySelector('.serie-label');
     if (label) {
@@ -2081,11 +2252,11 @@ function crearCardEjercicioExtra(ejercicio, notasValue) {
   btnDelete.dataset.action = 'delete-serie';
   btnDelete.textContent = '🗑️';
 
+  serieRow.appendChild(btnDelete);
   serieRow.appendChild(label);
   serieRow.appendChild(inputPeso);
   serieRow.appendChild(inputReps);
   serieRow.appendChild(checkSerie);
-  serieRow.appendChild(btnDelete);
   seriesInputsDiv.appendChild(serieRow);
 
   // --- BOTÓN "+ SERIE" ---
@@ -2141,6 +2312,9 @@ listaEjerciciosExtra?.addEventListener('click', (e) => {
   //  botón eliminar ni el filtro anti-duplicados)
   contenedorEl?.appendChild(card);
   guardarEstadoEntrenamiento();
+
+  // Hito 16: Inyectar columna ANTERIOR en la nueva card
+  inyectarAnteriorEnCards();
 
   // Refrescar la lista de extra: el ejercicio agregado
   // desaparece del panel (anti-duplicados) y respeta el filtro activo
@@ -2645,6 +2819,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       mostrarApp();
       mostrarVistaRutinas();
       cargarRutinasUsuario();
+
+      // Verificar onboarding después de cargar rutinas
+      verificarOnboarding();
     }
   } else {
     mostrarLogin();

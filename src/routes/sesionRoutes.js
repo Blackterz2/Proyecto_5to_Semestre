@@ -5,7 +5,7 @@
 // con el controlador.
 
 const { Router } = require('express');
-const { crearSesion, getHistorial } = require('../controllers/sesionController');
+const { crearSesion, getHistorial, getUltimaSesion } = require('../controllers/sesionController');
 const { verificarToken } = require('../middlewares/authMiddleware');
 
 const router = Router();
@@ -18,5 +18,9 @@ router.get('/', verificarToken, getHistorial);
 // 🔒 Protegida con JWT: solo usuarios autenticados pueden crear sesiones
 // El usuario_id se extrae del TOKEN, no del body (previene ID Spoofing)
 router.post('/', verificarToken, crearSesion);
+
+// GET /api/sesiones/ultima/:rutina_id - Última sesión de una rutina (para sobrecarga progresiva)
+// 🔒 Protegida con JWT: devuelve SOLO las sesiones del usuario del token
+router.get('/ultima/:rutina_id', verificarToken, getUltimaSesion);
 
 module.exports = router;

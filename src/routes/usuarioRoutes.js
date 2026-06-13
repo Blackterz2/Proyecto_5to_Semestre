@@ -10,7 +10,7 @@
 
 const { Router } = require('express');
 const { verificarToken } = require('../middlewares/authMiddleware');
-const { eliminarCuenta, obtenerPerfil, subirAvatar, upload } = require('../controllers/usuarioController');
+const { eliminarCuenta, obtenerPerfil, subirAvatar, upload, postOnboarding } = require('../controllers/usuarioController');
 
 const router = Router();
 
@@ -24,5 +24,8 @@ router.get('/me', verificarToken, obtenerPerfil);
 // Multer procesa el archivo ANTES del controlador
 // El campo del formulario debe llamarse 'avatar'
 router.post('/avatar', verificarToken, upload.single('avatar'), subirAvatar);
+
+// POST /api/usuarios/onboarding - Completar onboarding del usuario
+router.post('/onboarding', verificarToken, postOnboarding);
 
 module.exports = router;

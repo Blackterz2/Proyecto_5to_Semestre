@@ -979,6 +979,27 @@ body {
 }
 
 /* ============================================================
+   COLUMNA "ANTERIOR" — Sobrecarga Progresiva (Hito 16)
+   ============================================================ */
+/* Encabezado de la columna */
+/* Valor de la sesión anterior (solo lectura, referencia visual) */
+.anterior-valor {
+  font-size: 0.8rem;
+  color: #666;
+  text-align: left;
+  margin-left: 10px;
+  font-weight: 400;
+  background: transparent;
+  border: none;
+  flex-shrink: 0;
+  font-family: inherit;
+  cursor: default;
+  user-select: none;
+  padding: 0;
+  line-height: 1;
+}
+
+/* ============================================================
    BOTÓN: FINALIZAR ENTRENAMIENTO
    ============================================================ */
 .finalizar-wrapper {
@@ -1072,6 +1093,8 @@ body {
   accent-color: var(--success);
   cursor: pointer;
   flex-shrink: 0;
+  padding: 4px;
+  margin: 0;
 }
 
 /* Botón para eliminar una serie individual */
@@ -1588,6 +1611,7 @@ body {
   .serie-row { gap: 6px; }
   .input-serie { width: 65px; padding: 6px 8px; font-size: 0.85rem; }
   .serie-label { font-size: 0.75rem; min-width: 48px; }
+  .anterior-valor { font-size: 0.7rem; margin-right: 6px; }
   .btn-finalizar { padding: 14px 28px; font-size: 1rem; }
 
   /* Historial responsive: ocultar columnas secundarias */
@@ -1708,6 +1732,30 @@ body {
     width: 100% !important;
   }
 }
+
+/* ============================================================
+   MODAL ONBOARDING — Full-screen bloqueante
+   ============================================================ */
+.modal-onboarding {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center;
+  z-index: 99999;
+}
+.onboarding-content {
+  background: #16213e; padding: 2rem; border-radius: 16px; max-width: 400px; width: 90%;
+}
+.onboarding-content h2 { text-align: center; margin-bottom: 0.5rem; }
+.onboarding-content p { text-align: center; color: #999; margin-bottom: 1.5rem; }
+.onboarding-content label { display: block; margin: 1rem 0 0.3rem; font-weight: bold; }
+.onboarding-content select,
+.onboarding-content input { width: 100%; padding: 0.75rem; border-radius: 8px; border: none; background: #1a1a2e; color: #e0e0e0; }
+.btn-onboarding-submit {
+  width: 100%; margin-top: 1.5rem; padding: 0.8rem;
+  background: linear-gradient(135deg, #e94560, #c23152);
+  color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold;
+  cursor: pointer;
+}
+.btn-onboarding-submit:hover { transform: scale(1.02); }
 
 /* ============================================================
    TOAST — Notificación de restauración (Hito 14)

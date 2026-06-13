@@ -27,8 +27,11 @@
 18. [Hito 12.7 — Avatar Real con Multer + MySQL](#18-hito-127--avatar-real-con-multer--mysql)
 19. [Hito 13 — Notas, Lightbox y Borrado Lógico de Rutinas](#19-hito-13--notas-lightbox-y-borrado-lógico-de-rutinas)
 20. [Hito 14 — Sistema de Rescate de Entrenamiento](#20-hito-14--sistema-de-rescate-de-entrenamiento)
-21. [Glosario de Conceptos](#21-glosario-de-conceptos)
-22. [Resumen de APIs](#22-resumen-de-apis)
+21. [Hito 16 — Sobrecarga Progresiva (Sistema ANTERIOR)](#21-hito-16--sobrecarga-progresiva-sistema-anterior)
+22. [Hito 17 — Onboarding y Asignación Inteligente](#22-hito-17--onboarding-y-asignación-inteligente)
+23. [Glosario de Conceptos](#23-glosario-de-conceptos)
+24. [Resumen de APIs](#24-resumen-de-apis)
+25. [Auditoría y Limpieza de Columnas](#25-auditoría-y-limpieza-de-columnas-enfoque-híbrido)
 
 ---
 
@@ -57,13 +60,13 @@
 
 La base de datos real se llama **`fitness_app`** (no `blackterz`). Fue creada en un proyecto anterior y reutilizada acá. Contiene las tablas:
 
-- `usuarios` — id, nombre, email, password, created_at, **activo** (soft delete), **avatar_url** (foto de perfil)
-- `rutinas` — id, usuario_id, nombre, descripcion, activa, created_at, updated_at
+- `usuarios` — id, nombre, email, password, created_at, **activo** (soft delete), **avatar_url** (foto de perfil), updated_at
+- `rutinas` — id, usuario_id, nombre, descripcion, **activa** (soft delete), created_at, updated_at
 - `ejercicios` — id, nombre, descripcion, categoria, imagen_url
-- `ejercicios_rutinas` — id, rutina_id, ejercicio_id, orden, series, repeticiones, peso
-- `sesiones_entrenamiento` — id, usuario_id, rutina_id, fecha, notas, duracion_minutos
-- `sesion_ejercicios` — id, sesion_id, ejercicio_id, notas
-- `sesion_series` — id, sesion_ejercicio_id, numero_serie, repeticiones, peso, tiempo_descanso, duracion_segundos, completada, created_at
+- `ejercicios_rutinas` — id, rutina_id, ejercicio_id, orden, series, repeticiones, peso, **tiempo_descanso** (temporizador entre series)
+- `sesiones_entrenamiento` — id, usuario_id, rutina_id, fecha, **estado** (pendiente/completada/cancelada), notas, duracion_minutos, created_at, updated_at
+- `sesion_ejercicios` — id, sesion_id, ejercicio_id, **orden** (índice numérico), notas, created_at
+- `sesion_series` — id, sesion_ejercicio_id, numero_serie, repeticiones, peso, **completada** (checkbox por serie), created_at
 
 ---
 
@@ -82,7 +85,8 @@ Proyecto_Blackterz/
 │   ├── migracion-activo.sql      ← Migración: columna activo (soft delete)
 │   ├── migracion-avatar.sql      ← Migración: columna avatar_url
 │   ├── migracion-hito13.sql      ← Migración: columna activa en rutinas
-│   └── migracion-dropear-notas.sql ← Migración: dropear columnas notas sin uso
+│   ├── migracion-dropear-notas.sql     ← Migración: dropear columnas notas sin uso
+│   └── migracion-dropear-columnas.sql  ← Migración: dropear 6 columnas redundantes
 ├── public/                       ← Frontend (estático)
 │   ├── index.html                ← Página principal con login + registro + rutina + perfil + modales
 │   ├── styles.css                ← Dark mode + cards + buscador + responsive + floating timer
@@ -1624,7 +1628,118 @@ function crearCardEjercicioExtra(ejercicio, notasValue) {
 
 ---
 
-## 21. Glosario de Conceptos
+## 21. Hito 16 — Sobrecarga Progresiva (Sistema ANTERIOR)
+
+> **Objetivo:** Mostrar los pesos y repeticiones de la sesión anterior como referencia durante el entrenamiento activo, para que el usuario aplique sobrecarga progresiva sin tener que memorizar.
+
+### 21.1 Arquitectura
+
+- **Backend:** Nuevo endpoint `GET /api/sesiones/ultima/:rutina_id` que devuelve la última sesión completada, con sus ejercicios y series agrupadas por `ejercicio_id`.
+- **Frontend:** Inyección de `<span class="anterior-valor">` dentro de cada `.serie-row` con el texto `<peso>kg x <repeticiones>`.
+- **Almacenamiento:** Los datos se cachean en la variable global `ultimaSesionData`.
+
+### 21.2 Endpoint
+
+```
+GET /api/sesiones/ultima/:rutina_id
+Authorization: Bearer <token>
+```
+
+Respuesta:
+```json
+{
+  "status": "ok",
+  "data": {
+    "sesionId": 13,
+    "ejercicios": {
+      "1": [{ "peso": "20.00", "repeticiones": 10 }, ...],
+      "2": [{ "peso": "60.00", "repeticiones": 10 }, ...]
+    }
+  }
+}
+```
+
+### 21.3 Flujo Frontend
+
+1. `cargarRutina()` → llama a `cargarUltimaSesion(rutinaId)` → espera → `inyectarAnteriorEnCards()`
+2. `inyectarAnteriorEnCards()` recorre cada `.card`, busca `.serie-row` por índice, y agrega un `<span class="anterior-valor">` después del checkbox (`☑️ → 20kg x 10`)
+3. Al agregar una serie con "+ Serie", `cloneNode(true)` copiaba el span anterior — se corrigió removiendo `.anterior-valor` después del clonado
+4. Al recargar página con draft activo, `restaurarEstadoEntrenamiento()` reconstruye las series (borrando los spans), pero se agregó una segunda llamada a `inyectarAnteriorEnCards()` post-rebuild
+
+### 21.4 Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/models/sesionModel.js` | Nueva función `obtenerUltimaSesionPorRutina()`, filtro sin columna `estado` |
+| `src/controllers/sesionController.js` | Nueva función `getUltimaSesion()` |
+| `src/routes/sesionRoutes.js` | Ruta `GET /ultima/:rutina_id` |
+| `public/app.js` | `cargarUltimaSesion()`, `inyectarAnteriorEnCards()`, fix en restore y +Serie |
+| `public/styles.css` | Clase `.anterior-valor` con `margin-left`, color `#666`, `flex-shrink: 0` |
+
+### 21.5 Bugs Corregidos
+
+| Bug | Síntoma | Fix |
+|-----|---------|-----|
+| ANTERIOR perdido al recargar | Al hacer F5 con draft activo, los valores grises no aparecían | Agregar `inyectarAnteriorEnCards()` después de la reconstrucción de series en `restaurarEstadoEntrenamiento()` |
+| +Serie heredaba ANTERIOR falso | La nueva serie mostraba los datos de la fila anterior | Remover `.anterior-valor` del `cloneNode(true)` |
+| Posición incorrecta | El span aparecía entre reps y checkbox | Cambiar inserción a después del checkbox |
+
+---
+
+## 22. Hito 17 — Onboarding y Asignación Inteligente
+
+> **Objetivo:** Guiar al usuario nuevo con un formulario post-registro (peso, altura, sexo, experiencia) y asignarle automáticamente una rutina inicial basada en su IMC y sexo.
+
+### 22.1 Migración de Base de Datos
+
+Se agregaron 5 columnas a `usuarios`:
+
+```sql
+ALTER TABLE usuarios
+  ADD COLUMN nivel_experiencia ENUM('Principiante','Intermedio','Avanzado') NULL,
+  ADD COLUMN peso_actual DECIMAL(5,2) NULL,
+  ADD COLUMN estatura_cm INT NULL,
+  ADD COLUMN sexo ENUM('Masculino','Femenino','Otro') NULL,
+  ADD COLUMN onboarding_completado BOOLEAN DEFAULT FALSE;
+```
+
+Archivos: `docs/migracion-hito17.sql`, `docs/migracion-hito17-parte2.sql`
+
+### 22.2 Algoritmo de Recomendación
+
+Se calcula el IMC: `peso_kg / (estatura_m)²`
+
+| Condición | Rutina Asignada |
+|-----------|----------------|
+| IMC ≥ 25 | "Bajo Impacto" (3 ejercicios de bajo impacto) |
+| IMC < 25 + Masculino | "Fuerza Base" (3 ejercicios de fuerza) |
+| IMC < 25 + Femenino | "Tonificación" (3 ejercicios de tono) |
+| Fallback (cualquier otro caso) | "Bajo Impacto" |
+
+### 22.3 Flujo
+
+1. Usuario se registra → JWT en localStorage
+2. `DOMContentLoaded` → `verificarOnboarding()` → `GET /api/usuarios/me`
+3. Si `onboarding_completado === false` → `mostrarModalOnboarding()` (full-screen, sin escape)
+4. Usuario completa formulario (peso, altura, sexo, nivel de experiencia)
+5. `POST /api/usuarios/onboarding` → backend calcula IMC, busca/crea rutina, asigna 3 ejercicios, todo en transacción
+6. Se recarga la página → `onboarding_completado = true` → ya no muestra modal
+
+### 22.4 Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `docs/migracion-hito17.sql` | ADD 4 columnas (peso, altura, nivel, onboarding) |
+| `docs/migracion-hito17-parte2.sql` | ADD columna sexo |
+| `src/models/usuarioModel.js` | Nueva función `completarOnboarding()` con transacción |
+| `src/controllers/usuarioController.js` | Nueva función `postOnboarding()` con lógica IMC |
+| `src/routes/usuarioRoutes.js` | Ruta `POST /onboarding` |
+| `public/index.html` | Modal de onboarding (#modal-onboarding) |
+| `public/app.js` | `verificarOnboarding()`, lógica del modal |
+
+---
+
+## 23. Glosario de Conceptos
 
 > **Nota:** los conceptos de hitos anteriores no se repiten acá. Este glosario es acumulativo: cada hito agrega los conceptos nuevos que introduce.
 
@@ -1692,7 +1807,7 @@ function crearCardEjercicioExtra(ejercicio, notasValue) {
 
 ---
 
-## 22. Resumen de APIs
+## 24. Resumen de APIs
 
 | Método | Ruta | Auth | Descripción | Request Body | Response |
 |--------|------|------|-------------|--------------|----------|
@@ -1722,6 +1837,64 @@ function crearCardEjercicioExtra(ejercicio, notasValue) {
 | **404** | Not Found | Recurso no existe (ej: rutina ID 999) |
 | **409** | Conflict | Email ya registrado |
 | **500** | Internal Server Error | Error interno (DB caída, error de sintaxis SQL, etc.) |
+
+---
+
+## 25. Auditoría y Limpieza de Columnas (Enfoque Híbrido)
+
+> **Objetivo:** Eliminar columnas redundantes o de micro-gestión que nunca se escriben desde el código, conservando aquellas con valor estratégico futuro.
+
+### 25.1 Columnas Conservadas (Reserva Estratégica)
+
+| Columna | Motivo |
+|---------|--------|
+| `sesion_ejercicios.orden` | Pilar relacional: sin orden numérico, SQL devuelve ejercicios desordenados |
+| `sesion_series.completada` | Los checkboxes del frontend ya existen — próximamente se conectarán a esta columna |
+| `ejercicios_rutinas.tiempo_descanso` | Temporizador de descanso entre series (ej: 90 segundos), clásico en apps fitness |
+
+> ⚠️ `sesiones_entrenamiento.estado` fue eliminada en la migración `migracion-drop-estado.sql` (ver sección 25.3) porque el sistema solo persiste sesiones completadas, volviéndola redundante.
+
+### 23.2 Columnas Eliminadas (Lastre y Deuda Técnica)
+
+| Tabla | Columnas eliminadas | Motivo |
+|-------|---------------------|--------|
+| `sesion_ejercicios` | `series_planificadas`, `repeticiones_planificadas`, `peso_planificado` | Doble registro (planeado vs real) complica el backend. La app permite editar al vuelo, así que el planificado sobra. |
+| `sesion_ejercicios` | `completado` | Redundante: un ejercicio está completado si TODAS sus series lo están (columna `completada` en `sesion_series`). |
+| `sesion_series` | `duracion_segundos` | Micro-gestión excesiva. Medir segundos exactos por serie no se usa en apps comerciales. |
+| `sesion_series` | `tiempo_descanso` | Redundante con `ejercicios_rutinas.tiempo_descanso` (nivel rutina vs nivel serie). |
+
+### 25.3 Migraciones SQL
+
+| Archivo | Contenido |
+|---------|-----------|
+| `docs/migracion-dropear-columnas.sql` | DROP de 6 columnas redundantes |
+| `docs/migracion-drop-estado.sql` | DROP de `sesiones_entrenamiento.estado` |
+| `docs/migracion-hito17.sql` | ADD columnas onboarding a `usuarios` |
+| `docs/migracion-hito17-parte2.sql` | ADD columna `sexo` a `usuarios` |
+
+Ejemplo (`migracion-dropear-columnas.sql`):
+
+```sql
+USE fitness_app;
+
+ALTER TABLE sesion_ejercicios DROP COLUMN series_planificadas;
+ALTER TABLE sesion_ejercicios DROP COLUMN repeticiones_planificadas;
+ALTER TABLE sesion_ejercicios DROP COLUMN peso_planificado;
+ALTER TABLE sesion_ejercicios DROP COLUMN completado;
+
+ALTER TABLE sesion_series DROP COLUMN duracion_segundos;
+ALTER TABLE sesion_series DROP COLUMN tiempo_descanso;
+```
+
+### 25.4 Limpieza Acumulada
+
+| Migración | Columnas eliminadas | Tablas afectadas |
+|-----------|-------------------|------------------|
+| `migracion-dropear-notas.sql` | `notas` | `ejercicios_rutinas`, `rutinas`, `sesion_series` |
+| `migracion-dropear-columnas.sql` | `series_planificadas`, `repeticiones_planificadas`, `peso_planificado`, `completado`, `duracion_segundos`, `tiempo_descanso` | `sesion_ejercicios`, `sesion_series` |
+| `migracion-drop-estado.sql` | `estado` | `sesiones_entrenamiento` |
+
+**Total:** 10 columnas eliminadas, 3 columnas conservadas estratégicamente.
 
 ---
 

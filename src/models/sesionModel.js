@@ -235,4 +235,75 @@ async function obtenerHistorialUsuario(usuario_id) {
   return rows;
 }
 
-module.exports = { guardarSesionCompleta, obtenerHistorialUsuario };
+// ============================================================
+// obtenerUltimaSesionPorRutina(rutinaId, usuarioId)
+// ============================================================
+// Busca la última sesión completada para una rutina específica
+// y devuelve las series agrupadas por ejercicio.
+//
+// ¿CÓMO FUNCIONA?
+// ----------------
+// 1. Busca la sesión más reciente del usuario para esta rutina
+//    (ORDER BY fecha DESC, id DESC LIMIT 1).
+// 2. Si existe, consulta los ejercicios y series de esa sesión.
+// 3. Agrupa las series por ejercicio_id y las devuelve como
+//    { sesionId, ejercicios: { [ejercicio_id]: [{peso, repeticiones}, ...] } }
+//
+// ¿PARA QUÉ SIRVE?
+// -----------------
+// Esta función alimenta el sistema de SOBRECARGA PROGRESIVA.
+// El frontend la usa para mostrar los valores de la sesión
+// anterior como referencia al iniciar un nuevo entrenamiento.
+async function obtenerUltimaSesionPorRutina(rutinaId, usuarioId) {
+  const [sesiones] = await pool.execute(
+     `SELECT id FROM sesiones_entrenamiento
+      WHERE usuario_id = ? AND rutina_id = ?
+      ORDER BY fecha DESC, id DESC
+      LIMIT 1`,
+    [usuarioId, rutinaId]
+  );
+
+  if (sesiones.length === 0) return null;
+
+  const sesionId = sesiones[0].id;
+
+  // Get exercises with their series
+  const [rows] = await pool.execute(
+    `SELECT sej.ejercicio_id, ss.numero_serie, ss.peso, ss.repeticiones
+     FROM sesion_ejercicios sej
+     JOIN sesion_series ss ON ss.sesion_ejercicio_id = sej.id
+     WHERE sej.sesion_id = ?
+     ORDER BY sej.ejercicio_id, ss.numero_serie`,
+    [sesionId]
+  );
+
+  // Group by ejercicio_id
+  const ejercicios = {};
+  for (const row of rows) {
+    if (!ejercicios[row.ejercicio_id]) {
+      ejercicios[row.ejercicio_id] = [];
+    }
+    ejercicios[row.ejercicio_id].push({
+      peso: row.peso,
+      repeticiones: row.repeticiones,
+    });
+  }
+
+  return { sesionId, ejercicios };
+}
+
+// ============================================================
+// finalizarSesion(sesionId, duracionMinutos)
+// ============================================================
+// Marca una sesión como completada y registra su duración.
+// Útil si se quiere separar el guardado de la finalización.
+async function finalizarSesion(sesionId, duracionMinutos) {
+  await pool.execute(
+     `UPDATE sesiones_entrenamiento
+      SET duracion_minutos = ?
+      WHERE id = ?`,
+    [duracionMinutos || null, sesionId]
+  );
+}
+
+module.exports = { guardarSesionCompleta, obtenerHistorialUsuario, obtenerUltimaSesionPorRutina, finalizarSesion };

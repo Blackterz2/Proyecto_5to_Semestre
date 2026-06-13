@@ -30,7 +30,7 @@ async function desactivarUsuario(usuarioId) {
 // Se usa para mostrar el perfil en el frontend.
 async function obtenerUsuarioPorId(usuarioId) {
   const [rows] = await pool.execute(
-    `SELECT id, nombre, email, avatar_url, created_at
+    `SELECT id, nombre, email, avatar_url, created_at, onboarding_completado
      FROM usuarios WHERE id = ?`,
     [usuarioId]
   );
@@ -51,4 +51,19 @@ async function actualizarAvatar(usuarioId, avatarUrl) {
   return resultado.affectedRows > 0;
 }
 
-module.exports = { desactivarUsuario, obtenerUsuarioPorId, actualizarAvatar };
+// ============================================================
+// completarOnboarding(usuarioId, datos)
+// ============================================================
+// Guarda los datos biométricos y marca onboarding como completo.
+async function completarOnboarding(usuarioId, datos) {
+  const [resultado] = await pool.execute(
+    `UPDATE usuarios
+     SET nivel_experiencia = ?, sexo = ?, peso_actual = ?, estatura_cm = ?, onboarding_completado = TRUE
+     WHERE id = ?`,
+    [datos.nivel_experiencia, datos.sexo || 'Otro', datos.peso_actual || null, datos.estatura_cm || null, usuarioId]
+  );
+
+  return resultado.affectedRows > 0;
+}
+
+module.exports = { desactivarUsuario, obtenerUsuarioPorId, actualizarAvatar, completarOnboarding };

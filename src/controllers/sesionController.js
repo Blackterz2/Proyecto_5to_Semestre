@@ -5,7 +5,7 @@
 // completos, y se los pasa al modelo para que los guarde
 // usando una transacción SQL.
 
-const { guardarSesionCompleta, obtenerHistorialUsuario } = require('../models/sesionModel');
+const { guardarSesionCompleta, obtenerHistorialUsuario, obtenerUltimaSesionPorRutina } = require('../models/sesionModel');
 
 // ============================================================
 // crearSesion(req, res) - POST /api/sesiones
@@ -203,4 +203,55 @@ async function getHistorial(req, res) {
   }
 }
 
-module.exports = { crearSesion, getHistorial };
+// ============================================================
+// getUltimaSesion(req, res) - GET /api/sesiones/ultima/:rutina_id
+// ============================================================
+// Devuelve la última sesión de entrenamiento del usuario para
+// una rutina específica, con las series agrupadas por ejercicio.
+//
+// SEGURIDAD:
+//   - usuario_id viene del JWT (req.usuario.usuario_id)
+//   - El parámetro rutina_id se valida que sea numérico
+//
+// RESPUESTAS:
+//   200: { status: 'ok', data: { sesionId, ejercicios } }
+//   200: { status: 'ok', data: null, message: '...' } si no hay historial
+//   400: { status: 'error', message: 'ID de rutina inválido' }
+//   500: { status: 'error', message: 'Error al obtener la última sesión' }
+async function getUltimaSesion(req, res) {
+  try {
+    const usuarioId = req.usuario.usuario_id;
+    const rutinaId = Number(req.params.rutina_id);
+
+    if (isNaN(rutinaId)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'ID de rutina inválido',
+      });
+    }
+
+    const resultado = await obtenerUltimaSesionPorRutina(rutinaId, usuarioId);
+
+    if (!resultado) {
+      return res.json({
+        status: 'ok',
+        data: null,
+        message: 'No hay sesiones anteriores para esta rutina',
+      });
+    }
+
+    res.json({
+      status: 'ok',
+      data: resultado,
+    });
+
+  } catch (error) {
+    console.error('Error al obtener última sesión:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error al obtener la última sesión',
+    });
+  }
+}
+
+module.exports = { crearSesion, getHistorial, getUltimaSesion };
