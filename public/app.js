@@ -110,7 +110,7 @@ const panelDetalleBack   = document.getElementById('panel-detalle-back');
 // Guardamos el ID de la rutina que se está mostrando actualmente
 // en la vista "Entrenar". Se actualiza cada vez que el usuario
 // hace clic en una rutina del dashboard.
-let rutinaActualId = 1;
+let rutinaActualId = null;
 
 // Temporizador de entrenamiento activo
 let intervaloReloj = null;
@@ -300,7 +300,7 @@ function guardarEstadoEntrenamiento() {
   });
 
   const draft = {
-    rutinaActualId: rutinaActualId || null,
+    rutinaActualId: rutinaActualId && Number.isFinite(rutinaActualId) ? rutinaActualId : null,
     horaInicio: horaInicio || null,
     segundosTranscurridos: segundosTranscurridos || 0,
     ejercicios,
@@ -357,26 +357,40 @@ async function restaurarEstadoEntrenamiento() {
 
   let draft;
   try { draft = JSON.parse(raw); } catch { return false; }
-  if (!draft.rutinaActualId) return false;
 
   const usuarioId = extraerUsuarioIdDelToken();
   const usuarioNombre = extraerNombreDelToken() || 'desconocido';
   console.log(`Intentando restaurar rutina ID: ${draft.rutinaActualId} para usuario: ${usuarioNombre} (ID: ${usuarioId})`);
 
+  // ============================================================
+  // VALIDACIÓN: ID inválido en el draft
+  // ============================================================
+  // Si el draft se guardó con null/undefined/NaN (ej: después de
+  // finalizar o descartar), o con el string "null" (error de
+  // serialización previa), no es un draft zombie — solo está
+  // corrupto. No ejecutamos limpiarEstadoDeEmergencia porque
+  // el usuario no perdió nada. Simplemente ignoramos.
+  const draftId = Number(draft.rutinaActualId);
+  if (!draftId || !Number.isFinite(draftId) || draft.rutinaActualId === 'null') {
+    console.warn('Draft sin ID de rutina válido. Ignorando.');
+    localStorage.removeItem('entrenamiento_draft');
+    return false;
+  }
+
   try {
-    const res = await fetch(`/api/rutinas/${draft.rutinaActualId}`, {
+    const res = await fetch(`/api/rutinas/${draftId}`, {
       headers: { 'Authorization': 'Bearer ' + getToken() }
     });
     if (!res.ok) {
-      // Draft inválido (rutina no existe, no pertenece al usuario o fue eliminada)
-      console.warn(`Draft detectado pero no pertenece a este usuario (${res.status}). Limpiando...`);
+      // Draft inválido: la rutina NO existe o NO pertenece al usuario
+      console.warn(`Draft inválido — la rutina ${draftId} no está disponible para este usuario (${res.status}). Limpiando...`);
       limpiarEstadoDeEmergencia();
       return false;
     }
     const json = await res.json();
     if (!json.data) {
-      // Datos vacíos, limpiar draft corrupto
-      console.warn('Draft con datos vacíos. Limpiando...');
+      // Datos vacíos (caso extremo, no debería pasar con 200)
+      console.warn('Draft con datos vacíos del servidor. Limpiando...');
       limpiarEstadoDeEmergencia();
       return false;
     }
@@ -933,7 +947,7 @@ async function cargarRutina(rutinaId) {
     return;
   }
 
-  rutinaActualId = id;
+  rutinaActualId = Number(id);
 
   // ============================================================
   // LIMPIAR ESTADO RESIDUAL DE LA VISTA ANTERIOR
@@ -2118,7 +2132,7 @@ btnEliminarCuenta?.addEventListener('click', async () => {
 // CERRAR SESIÓN (LOGOUT)
 // ============================================================
 btnLogout?.addEventListener('click', () => {
-  limpiarEstadoEntrenamiento();
+  limpiarEstadoDeEmergencia();
   // Limpiar estado de entrenamiento activo (si lo hay)
   // Sin esto, al volver a iniciar sesión queda entrenamientoActivo = true,
   // rutinaActualId apunta a un ID viejo, y el timer sigue corriendo en background.
