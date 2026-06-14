@@ -535,6 +535,10 @@ async function restaurarEstadoEntrenamiento() {
     ultimaSesionData = null;
     cargarUltimaSesion(rutinaActualId).then(() => inyectarAnteriorEnCards());
 
+    // Re-guardar el draft con el timer ya restaurado (cargarRutina()
+    // pisó horaInicio al llamar a iniciarTemporizador())
+    guardarEstadoEntrenamiento();
+
     mostrarToast('🔄 Entrenamiento restaurado');
     return true;
   } catch {
@@ -1036,6 +1040,7 @@ async function cargarRutina(rutinaId) {
       // para que el usuario pueda agregar ejercicios sobre la marcha
       if (accionesEntreno) accionesEntreno.classList.remove('hidden');
       poblarListaEjerciciosExtra(buscadorExtra?.value);
+      guardarEstadoEntrenamiento();
       return;
     }
 
@@ -1227,6 +1232,9 @@ async function cargarRutina(rutinaId) {
       await cargarUltimaSesion(rutinaId);
       inyectarAnteriorEnCards();
     }
+
+    // Forzar guardado del draft inmediatamente al cargar la rutina
+    guardarEstadoEntrenamiento();
 
   } catch (error) {
     console.error('Error:', error.message);
