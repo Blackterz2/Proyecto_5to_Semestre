@@ -1,9 +1,12 @@
 # Roadmap y Backlog del Proyecto Blackterz
 
+> **Nota de fases:** La Fase 1 comprendió los Hitos 1 al 17 (base, auth, frontend, rutinas, sesiones, temporizador, sobrecarga progresiva, onboarding, etc.).
+> La **Fase 2** arranca con los hitos pendientes de pulido y funcionalidad core faltante.
+
 ## 🔴 Prioridad Crítica (Funcionalidad Core)
-- [ ] **1. Editar una rutina (PUT):** Implementar endpoint y UI para editar nombre, descripción y ejercicios de una rutina existente (actualmente solo se puede borrar y crear de nuevo).
-- [ ] **2. Editar perfil/contraseña:** Implementar `PUT /api/usuarios/me` para permitir al usuario cambiar su nombre y contraseña desde la vista de perfil.
-- [ ] **3. Recuperación de contraseña:** Implementar flujo de "Olvidé mi clave" con envío de correos (Nodemailer) y tokens temporales para evitar pérdida permanente de cuentas.
+- [ ] **F2 Hito 1. Editar una rutina (PUT):** Implementar endpoint y UI para editar nombre, descripción y ejercicios de una rutina existente (actualmente solo se puede borrar y crear de nuevo).
+- [x] **F2 Hito 2. Editar perfil/contraseña:** Implementar `PUT /api/usuarios/me` para permitir al usuario cambiar su nombre y contraseña desde la vista de perfil.
+- [ ] **F2 Hito 3. Recuperación de contraseña:** Implementar flujo de "Olvidé mi clave" con envío de correos (Nodemailer) y tokens temporales para evitar pérdida permanente de cuentas.
 
 ## 🟡 Prioridad Media (UX y Retención)
 - [ ] **4. Volumen en historial:** Añadir a la tabla del historial la cantidad de ejercicios realizados y el volumen total (kg × series × reps) para medir el progreso.
