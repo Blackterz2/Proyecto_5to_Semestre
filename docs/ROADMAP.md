@@ -6,7 +6,7 @@
 ## 🔴 Prioridad Crítica (Funcionalidad Core)
 - [ ] **F2 Hito 1. Editar una rutina (PUT):** Implementar endpoint y UI para editar nombre, descripción y ejercicios de una rutina existente (actualmente solo se puede borrar y crear de nuevo).
 - [x] **F2 Hito 2. Editar perfil/contraseña:** Implementar `PUT /api/usuarios/me` para permitir al usuario cambiar su nombre y contraseña desde la vista de perfil.
-- [ ] **F2 Hito 3. Recuperación de contraseña:** Implementar flujo de "Olvidé mi clave" con envío de correos (Nodemailer) y tokens temporales para evitar pérdida permanente de cuentas.
+- [x] **F2 Hito 3. Recuperación de contraseña:** Implementar flujo de "Olvidé mi clave" con envío de correos (Nodemailer) y tokens temporales para evitar pérdida permanente de cuentas.
 
 ## 🟡 Prioridad Media (UX y Retención)
 - [ ] **4. Volumen en historial:** Añadir a la tabla del historial la cantidad de ejercicios realizados y el volumen total (kg × series × reps) para medir el progreso.
