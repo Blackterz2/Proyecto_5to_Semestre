@@ -284,6 +284,70 @@ async function insertarEjerciciosEnRutina(rutinaId, ejercicios_ids) {
 }
 
 // ============================================================
+// actualizarRutinaBasico(rutinaId, usuarioId, nombre, descripcion)
+// ============================================================
+// Actualiza nombre y descripción de una rutina existente.
+// Solo si pertenece al usuario y está activa.
+async function actualizarRutinaBasico(rutinaId, usuarioId, nombre, descripcion) {
+  const [result] = await pool.execute(
+    `UPDATE rutinas SET nombre = ?, descripcion = ? WHERE id = ? AND usuario_id = ? AND activa = TRUE`,
+    [nombre, descripcion || null, rutinaId, usuarioId]
+  );
+  return result.affectedRows;
+}
+
+// ============================================================
+// reemplazarEjerciciosDeRutina(rutinaId, usuarioId, ids)
+// ============================================================
+// Reemplaza TODOS los ejercicios de una rutina en una
+// transacción atómica: DELETE de los existentes + INSERT
+// de los nuevos. Valida que el array no esté vacío.
+//
+// ¿Por qué TRANSACCIÓN?
+//   Si el DELETE se ejecuta pero el INSERT falla, la rutina
+//   se queda sin ejercicios. Con transacción, si algo falla
+//   todo se revierte y la rutina queda como estaba antes.
+async function reemplazarEjerciciosDeRutina(rutinaId, usuarioId, ids) {
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    throw new Error('Debe seleccionar al menos un ejercicio');
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // 1. Eliminar ejercicios actuales (validando propiedad de la rutina)
+    const [deleteResult] = await connection.execute(
+      `DELETE er FROM ejercicios_rutinas er
+       INNER JOIN rutinas r ON r.id = er.rutina_id
+       WHERE er.rutina_id = ? AND r.usuario_id = ? AND r.activa = TRUE`,
+      [rutinaId, usuarioId]
+    );
+
+    // Si no se borró nada, la rutina podría no existir o no pertenecer al usuario
+    // (no tiramos error porque puede ser que ya no tuviera ejercicios)
+
+    // 2. Insertar los nuevos ejercicios con orden correlativo
+    for (let i = 0; i < ids.length; i++) {
+      const ejercicioId = Number(ids[i]);
+      if (!Number.isFinite(ejercicioId)) continue; // saltar IDs inválidos
+
+      await connection.execute(
+        `INSERT INTO ejercicios_rutinas (rutina_id, ejercicio_id, orden) VALUES (?, ?, ?)`,
+        [rutinaId, ejercicioId, i + 1]
+      );
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+// ============================================================
 // desactivarRutina(rutinaId, usuarioId)
 // ============================================================
 // No borra la rutina de la BD, sino que marca activa = FALSE
@@ -305,6 +369,8 @@ async function desactivarRutina(rutinaId, usuarioId) {
 
 // Exportamos las funciones para que el controlador las use
 module.exports = {
+  actualizarRutinaBasico,
+  reemplazarEjerciciosDeRutina,
   obtenerRutinaConEjercicios,
   contarRutinasUsuario,
   insertarRutina,

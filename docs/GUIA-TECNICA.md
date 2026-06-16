@@ -32,6 +32,7 @@
 23. [Glosario de Conceptos](#23-glosario-de-conceptos)
 24. [Resumen de APIs](#24-resumen-de-apis)
 25. [Auditoría y Limpieza de Columnas](#25-auditoría-y-limpieza-de-columnas-enfoque-híbrido)
+26. [Refactor UI Botones de Rutina](#26-refactor-ui-botones-de-rutina)
 
 ---
 
@@ -1910,6 +1911,57 @@ ALTER TABLE sesion_series DROP COLUMN tiempo_descanso;
 >
 > 3. Engram también tiene memorias de cada hito. Si preguntás algo,
 >    el agente puede buscar en Engram y en esta guía.
+
+---
+
+---
+## 26. Refactor UI Botones de Rutina
+
+> **Objetivo:** Mejorar la jerarquía visual de las tarjetas de rutina en modo oscuro, eliminando el fondo gris de los botones, separándolos con gap para mejor UX (Ley de Fitts), y anclándolos a la esquina superior derecha con un wrapper Flexbox inline.
+
+### Problema Original
+
+Los botones ✏️ y 🗑️ estaban sueltos en el flujo del `.rutina-card`, sin `position: absolute` wrapper, lo que generaba:
+
+- Fondo gris/oscuro donde se renderizaban (sin `background: transparent` efectivo por herencia)
+- Botones muy pegados entre sí (mala aplicación de Ley de Fitts — área clickeable chica y juntos)
+- Jerarquía visual rota en modo oscuro (los botones competían con el nombre y contador de ejercicios)
+
+### Solución Implementada
+
+Se cambió el template HTML en `public/app.js` (función `cargarRutinasUsuario`) para envolver los botones en un contenedor Flexbox absoluto en la esquina superior derecha:
+
+```html
+<div style="position: absolute; top: 12px; right: 12px; display: flex; gap: 12px; z-index: 2;">
+  <button class="btn-editar-rutina" data-rutina-id="..." ...>✏️</button>
+  <button class="btn-eliminar-rutina" data-rutina-id="..." ...>🗑️</button>
+</div>
+```
+
+### Cambios Puntuales
+
+| Aspecto | Antes | Después |
+|---------|-------|---------|
+| **Contenedor** | Botones sueltos en el flujo del card | Wrapper `<div>` con `position: absolute` en esquina superior derecha |
+| **Anclaje del card** | Sin `position: relative` | `style="position: relative"` en el `.rutina-card` |
+| **Espaciado entre botones** | 0 (pegados) | `gap: 12px` via Flexbox |
+| **Orden** | 🗑️ primero, ✏️ segundo | ✏️ primero, 🗑️ segundo (editar antes que eliminar) |
+| **Fondo** | Heredaba fondo del card | `background: transparent` explícito en ambos |
+| **Opacidad** | `opacity: 0.5` (solo delete via CSS) | `opacity: 0.7` en ambos, con `transition: opacity 0.2s` |
+| **Overrides CSS** | `.btn-eliminar-rutina` tenía `position: absolute` propio | `position: static` inline para anular el CSS y que fluyan en el flex wrapper |
+| **Hover** | Solo `.btn-eliminar-rutina:hover { opacity: 1 }` | Ambos botones con `transition` preparados para hover futuro |
+
+### Restricciones Respetadas
+
+- No se modificó ningún archivo CSS externo
+- Los `data-rutina-id`, `data-rutina-nombre` y clases se mantuvieron idénticos
+- Los eventos existentes (eliminar, editar, navegar a entrenar) siguen funcionando sin cambios
+
+### Archivo Modificado
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/app.js` | Template de `cargarRutinasUsuario` — wrapper flex + inline styles en botones |
 
 ---
 

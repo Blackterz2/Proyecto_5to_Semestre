@@ -44,7 +44,8 @@ const inputNombreRutina   = document.getElementById('input-nombre-rutina');
 const btnModalCrear       = document.getElementById('btn-modal-crear');
 const btnModalCerrar      = document.getElementById('btn-modal-cerrar');
 const btnModalCancelar    = document.getElementById('btn-modal-cancelar');
-const modalError          = document.getElementById('modal-error');
+const modalError              = document.getElementById('modal-error');
+const inputDescripcionRutina  = document.getElementById('input-descripcion-rutina');
 
 // Vista "Entrenar" (rutina con ejercicios)
 const btnFinalizar       = document.getElementById('btn-finalizar');
@@ -78,6 +79,19 @@ const regError            = document.getElementById('register-error');
 const regSuccess          = document.getElementById('register-success');
 const toggleToRegister    = document.getElementById('toggle-to-register');
 const toggleToLogin       = document.getElementById('toggle-to-login');
+
+// Link "¿Olvidaste tu contraseña?" — se inyecta una sola vez debajo del botón de login
+if (!document.getElementById('forgot-pass-link')) {
+  const btnLogin = document.getElementById('btn-login');
+  if (btnLogin) {
+    const forgotLink = document.createElement('p');
+    forgotLink.id = 'forgot-pass-link';
+    forgotLink.className = 'auth-toggle-link';
+    forgotLink.style.marginTop = '8px';
+    forgotLink.innerHTML = '<a href="/forgot-password.html" class="auth-toggle-btn">¿Olvidaste tu contraseña?</a>';
+    btnLogin.parentNode.insertBefore(forgotLink, btnLogin.nextSibling);
+  }
+}
 
 // Eliminación de cuenta
 const btnEliminarCuenta   = document.getElementById('btn-eliminar-cuenta');
@@ -185,6 +199,10 @@ function extraerNombreDelToken() {
 // para preservar la selección cuando el usuario filtra/busca
 // y el DOM se redibuja.
 let ejerciciosSeleccionadosTemp = new Set();
+
+// Estado de edición de rutina
+// null = modo creación, number = modo edición con ese ID
+let rutinaEnEdicionId = null;
 
 // ============================================================
 // ONBOARDING — Modal bloqueante para nuevos usuarios
@@ -548,12 +566,17 @@ async function restaurarEstadoEntrenamiento() {
 
 // mostrarToast() — Muestra una notificación temporal en el toast
 // ubicado en la parte inferior central de la pantalla.
-function mostrarToast(mensaje) {
+// tipo opcional: 'success' (verde) o 'error' (rojo).
+function mostrarToast(mensaje, tipo) {
   const toast = document.getElementById('toast-restore');
   if (!toast) return;
   toast.textContent = mensaje;
   toast.classList.remove('hidden');
   toast.style.opacity = '1';
+  // Aplicar color según tipo
+  toast.style.background = tipo === 'error' ? '#d32f2f' :
+                           tipo === 'success' ? '#2e7d32' :
+                           'rgba(233, 69, 96, 0.95)';
   setTimeout(() => {
     toast.style.opacity = '0';
     setTimeout(() => toast.classList.add('hidden'), 300);
@@ -1308,6 +1331,10 @@ async function cargarHistorial() {
         perfilAvatarImg.classList.remove('hidden');
       }
     }
+
+    // Inicializar formularios de editar nombre y cambiar contraseña
+    inicializarFormulariosPerfil();
+
   } catch {
     // Si hay error de red, usar datos del JWT como fallback
     if (perfilEmail) perfilEmail.textContent = extraerEmailDelToken() || 'usuario@email.com';
@@ -1450,6 +1477,222 @@ async function cargarHistorial() {
 }
 
 // ============================================================
+// inicializarFormulariosPerfil()
+// ============================================================
+// Inyecta el botón "⚙️ Editar Perfil" debajo del email y crea
+// el modal de edición de perfil (Hito 2 del Roadmap).
+// Sigue el patrón exacto de abrir/cerrar del proyecto.
+function inicializarFormulariosPerfil() {
+
+  // ============================================================
+  // PASO 1 — Botón "⚙️ Editar Perfil" debajo del email
+  // ============================================================
+  // Solo se crea una vez en el DOM.
+  if (!document.getElementById('btn-abrir-modal-perfil')) {
+    const btnEditar = document.createElement('button');
+    btnEditar.id = 'btn-abrir-modal-perfil';
+    btnEditar.className = 'btn-logout';
+    btnEditar.textContent = '⚙️ Editar Perfil';
+    btnEditar.style.marginTop = '12px';
+
+    const infoDiv = document.querySelector('.perfil-info');
+    if (infoDiv) infoDiv.appendChild(btnEditar);
+  }
+
+  // ============================================================
+  // PASO 2 — Crear el modal (solo una vez en toda la sesión)
+  // ============================================================
+  if (!document.getElementById('modal-perfil-overlay')) {
+    const modalPerfilOverlay = document.createElement('div');
+    modalPerfilOverlay.id = 'modal-perfil-overlay';
+    modalPerfilOverlay.className = 'modal-overlay hidden';
+    modalPerfilOverlay.innerHTML = `
+      <div class="modal-content" style="max-width: 460px;">
+        <div class="modal-header">
+          <h3>⚙️ Editar Perfil</h3>
+          <button id="btn-cerrar-modal-perfil" class="modal-cerrar">&times;</button>
+        </div>
+        <div class="modal-body">
+
+          <div class="form-group">
+            <label class="form-label">Nombre</label>
+            <input type="text" id="modal-input-nombre" class="form-input" maxlength="50" />
+          </div>
+          <button id="modal-btn-guardar-nombre" class="btn-login" style="width:100%; margin-bottom: 24px;">Guardar nombre</button>
+
+          <hr style="border-color: rgba(255,255,255,0.1); margin-bottom: 24px;" />
+
+          <div class="form-group">
+            <label class="form-label">Contraseña actual</label>
+            <input type="password" id="modal-input-pass-actual" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nueva contraseña</label>
+            <input type="password" id="modal-input-pass-nueva" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirmar nueva contraseña</label>
+            <input type="password" id="modal-input-pass-confirmar" class="form-input" />
+          </div>
+          <button id="modal-btn-cambiar-pass" class="btn-login" style="width:100%;">Cambiar contraseña</button>
+
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modalPerfilOverlay);
+
+    // ============================================================
+    // PASO 3 — Funciones de apertura/cierre
+    // ============================================================
+    function abrirModalPerfil() {
+      const inputNombre = document.getElementById('modal-input-nombre');
+      const nombreActual = perfilNombre?.textContent || extraerNombreDelToken() || '';
+      if (inputNombre) inputNombre.value = nombreActual;
+      // Limpiar inputs de contraseña siempre al abrir
+      ['modal-input-pass-actual', 'modal-input-pass-nueva', 'modal-input-pass-confirmar'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      modalPerfilOverlay.classList.remove('hidden');
+    }
+
+    function cerrarModalPerfil() {
+      modalPerfilOverlay.classList.add('hidden');
+    }
+
+    // ============================================================
+    // PASO 4 — Event listeners del modal (una sola vez)
+    // ============================================================
+    document.getElementById('btn-cerrar-modal-perfil')?.addEventListener('click', cerrarModalPerfil);
+
+    // Cerrar al hacer clic fuera del modal
+    modalPerfilOverlay.addEventListener('click', (e) => {
+      if (e.target === modalPerfilOverlay) cerrarModalPerfil();
+    });
+
+    // Cerrar con Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modalPerfilOverlay.classList.contains('hidden')) {
+        cerrarModalPerfil();
+      }
+    });
+
+    // --- Guardar nombre ---
+    document.getElementById('modal-btn-guardar-nombre')?.addEventListener('click', async () => {
+      const input = document.getElementById('modal-input-nombre');
+      const nombre = input?.value.trim();
+      if (!nombre) {
+        mostrarToast('El nombre no puede estar vacío', 'error');
+        return;
+      }
+
+      const token = getToken();
+      if (!token) { mostrarLogin(); return; }
+
+      try {
+        const resp = await fetch('/api/usuarios/me', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token,
+          },
+          body: JSON.stringify({ nombre }),
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json();
+          mostrarToast(err.message || 'Error al guardar nombre', 'error');
+          return;
+        }
+
+        const result = await resp.json();
+        localStorage.setItem('token', result.token);
+        if (perfilNombre) perfilNombre.textContent = nombre;
+        cerrarModalPerfil();
+        mostrarToast('Nombre actualizado ✓', 'success');
+
+      } catch (error) {
+        console.error('Error al guardar nombre:', error.message);
+        mostrarToast('Error de conexión', 'error');
+      }
+    });
+
+    // --- Cambiar contraseña ---
+    document.getElementById('modal-btn-cambiar-pass')?.addEventListener('click', async () => {
+      const inputActual    = document.getElementById('modal-input-pass-actual');
+      const inputNueva     = document.getElementById('modal-input-pass-nueva');
+      const inputConfirmar = document.getElementById('modal-input-pass-confirmar');
+
+      const passwordActual    = inputActual?.value || '';
+      const passwordNueva     = inputNueva?.value || '';
+      const passwordConfirmar = inputConfirmar?.value || '';
+
+      if (!passwordActual) {
+        mostrarToast('Ingresá tu contraseña actual', 'error');
+        return;
+      }
+      if (passwordNueva.length < 8) {
+        mostrarToast('La nueva contraseña debe tener al menos 8 caracteres', 'error');
+        return;
+      }
+      if (passwordNueva !== passwordConfirmar) {
+        mostrarToast('Las contraseñas no coinciden', 'error');
+        return;
+      }
+
+      const token = getToken();
+      if (!token) { mostrarLogin(); return; }
+
+      try {
+        const resp = await fetch('/api/usuarios/contrasena', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token,
+          },
+          body: JSON.stringify({ passwordActual, passwordNueva }),
+        });
+
+        if (!resp.ok) {
+          if (resp.status === 401) {
+            mostrarToast('Contraseña actual incorrecta', 'error');
+          } else {
+            const err = await resp.json();
+            mostrarToast(err.message || 'Error al cambiar contraseña', 'error');
+          }
+          return;
+        }
+
+        cerrarModalPerfil();
+        mostrarToast('Contraseña actualizada ✓', 'success');
+
+      } catch (error) {
+        console.error('Error al cambiar contraseña:', error.message);
+        mostrarToast('Error de conexión', 'error');
+      }
+    });
+
+    // ============================================================
+    // PASO 5 — Conectar botón de apertura (fuera del guard: se
+    // asegura de tener un listener limpio cada render)
+    // ============================================================
+    function conectarBotonAbrirModal() {
+      const btn = document.getElementById('btn-abrir-modal-perfil');
+      if (!btn) return;
+      // Clonar y reemplazar para remover listeners viejos
+      const btnNuevo = btn.cloneNode(true);
+      btn.parentNode.replaceChild(btnNuevo, btn);
+      btnNuevo.addEventListener('click', () => {
+        abrirModalPerfil();
+      });
+    }
+
+    conectarBotonAbrirModal();
+  }
+}
+
+// ============================================================
 // cargarRutinasUsuario()
 // ============================================================
 // Obtiene TODAS las rutinas del usuario autenticado
@@ -1509,8 +1752,11 @@ async function cargarRutinasUsuario() {
       const totalEj = rutina.total_ejercicios || 0;
       const textoEj = totalEj === 1 ? '1 ejercicio' : totalEj + ' ejercicios';
       html += `
-        <div class="rutina-card" data-rutina-id="${rutina.id}">
-          <button class="btn-eliminar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}">🗑️</button>
+        <div class="rutina-card" data-rutina-id="${rutina.id}" style="position: relative;">
+          <div style="position: absolute; top: 12px; right: 12px; display: flex; gap: 12px; z-index: 2;">
+            <button class="btn-editar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Editar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s; position: static;">✏️</button>
+            <button class="btn-eliminar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Eliminar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s; position: static;">🗑️</button>
+          </div>
           <div class="rutina-card-nombre">${rutina.nombre}</div>
           <div class="rutina-card-ejercicios">${textoEj}</div>
         </div>
@@ -1545,8 +1791,9 @@ async function cargarRutinasUsuario() {
     // el ID de esa rutina.
     document.querySelectorAll('.rutina-card[data-rutina-id]').forEach((card) => {
       card.addEventListener('click', (e) => {
-        // No navegar a Entrenar si se clickeó el botón eliminar
+        // No navegar a Entrenar si se clickeó eliminar o editar
         if (e.target.closest('.btn-eliminar-rutina')) return;
+        if (e.target.closest('.btn-editar-rutina')) return;
 
         const id = Number(card.dataset.rutinaId);
         if (!id) return;
@@ -1580,10 +1827,19 @@ async function cargarRutinasUsuario() {
 // ABRIR / CERRAR MODAL DE CREACIÓN
 // ============================================================
 function abrirModal() {
+  // Resetear modo edición → modo creación
+  rutinaEnEdicionId = null;
+
   if (modalOverlay) {
     modalOverlay.classList.remove('hidden');
     inputNombreRutina.value = '';
+    if (inputDescripcionRutina) inputDescripcionRutina.value = '';
     inputNombreRutina.focus();
+
+    // Título según modo
+    const modalHeader = modalOverlay.querySelector('.modal-header h3');
+    if (modalHeader) modalHeader.textContent = '➕ Nueva Rutina';
+
     if (modalError) modalError.classList.add('hidden');
     btnModalCrear.disabled = false;
     btnModalCrear.textContent = 'Crear rutina';
@@ -1596,10 +1852,69 @@ function abrirModal() {
   }
 }
 
+// ============================================================
+// abrirModalEdicion(rutinaId)
+// ============================================================
+// Abre el modal en modo edición. Carga los datos actuales de
+// la rutina, pre-selecciona los ejercicios, y cambia el título
+// y botón a "Guardar cambios".
+async function abrirModalEdicion(rutinaId) {
+  const token = getToken();
+  if (!token) return;
+
+  try {
+    // Cargar datos completos de la rutina desde el backend
+    const respuesta = await fetch(`/api/rutinas/${rutinaId}`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!respuesta.ok) throw new Error('No se pudo cargar la rutina');
+
+    const datos = await respuesta.json();
+    const rutina = datos.data;
+    if (!rutina) throw new Error('Rutina no encontrada');
+
+    // Configurar estado de edición
+    rutinaEnEdicionId = rutinaId;
+
+    // Pre-cargar campos
+    inputNombreRutina.value = rutina.nombre || '';
+    if (inputDescripcionRutina) inputDescripcionRutina.value = rutina.descripcion || '';
+
+    // Pre-seleccionar ejercicios
+    ejerciciosSeleccionadosTemp.clear();
+    if (rutina.ejercicios && Array.isArray(rutina.ejercicios)) {
+      rutina.ejercicios.forEach(ej => {
+        ejerciciosSeleccionadosTemp.add(ej.id);
+      });
+    }
+
+    // Cambiar título del modal
+    const modalHeader = modalOverlay.querySelector('.modal-header h3');
+    if (modalHeader) modalHeader.textContent = '✏️ Editar Rutina';
+
+    // Cambiar texto del botón
+    btnModalCrear.textContent = 'Guardar cambios';
+    btnModalCrear.disabled = false;
+
+    if (modalError) modalError.classList.add('hidden');
+
+    // Renderizar checkboxes con selección ya poblada
+    modalOverlay.classList.remove('hidden');
+    renderizarCheckboxesEnModal();
+
+  } catch (error) {
+    console.error('Error al cargar rutina para editar:', error.message);
+    mostrarToast('Error al cargar los datos de la rutina', 'error');
+  }
+}
+
 function cerrarModal() {
   if (modalOverlay) {
     modalOverlay.classList.add('hidden');
   }
+  // Resetear estado de edición al cerrar para evitar
+  // inconsistencias si se abre de nuevo el modal.
+  rutinaEnEdicionId = null;
 }
 
 // ============================================================
@@ -1680,6 +1995,69 @@ async function crearNuevaRutina(nombre) {
 }
 
 // ============================================================
+// actualizarRutina(rutinaId, nombre)
+// ============================================================
+// Llama a PUT /api/rutinas/:id con nombre, descripción y
+// ejercicios seleccionados. Cierra el modal y refresca.
+async function actualizarRutina(rutinaId, nombre) {
+  const token = getToken();
+  if (!token) return;
+
+  try {
+    btnModalCrear.disabled = true;
+    btnModalCrear.textContent = 'Guardando...';
+    if (modalError) modalError.classList.add('hidden');
+
+    const descripcion = inputDescripcionRutina?.value?.trim() || null;
+    const ejercicios_ids = Array.from(ejerciciosSeleccionadosTemp);
+
+    const body = { nombre: nombre.trim() };
+    if (descripcion) body.descripcion = descripcion;
+    if (ejercicios_ids.length > 0) {
+      body.ejercicios_ids = ejercicios_ids;
+    }
+
+    const respuesta = await fetch(`/api/rutinas/${rutinaId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const datos = await respuesta.json();
+
+    if (!respuesta.ok) {
+      if (respuesta.status === 400 || respuesta.status === 404) {
+        if (modalError) {
+          modalError.textContent = '❌ ' + (datos.message || 'Error al guardar');
+          modalError.classList.remove('hidden');
+        }
+        return;
+      }
+      throw new Error(datos.message || 'Error del servidor');
+    }
+
+    // ✅ Éxito
+    cerrarModal();
+    rutinaEnEdicionId = null; // reset
+    mostrarToast('Rutina actualizada correctamente', 'success');
+    cargarRutinasUsuario();
+
+  } catch (error) {
+    console.error('Error al actualizar rutina:', error.message);
+    if (modalError) {
+      modalError.textContent = '❌ ' + error.message;
+      modalError.classList.remove('hidden');
+    }
+  } finally {
+    btnModalCrear.disabled = false;
+    btnModalCrear.textContent = 'Guardar cambios';
+  }
+}
+
+// ============================================================
 // EVENTOS DEL MODAL
 // ============================================================
 btnModalCrear?.addEventListener('click', () => {
@@ -1691,7 +2069,12 @@ btnModalCrear?.addEventListener('click', () => {
     }
     return;
   }
-  crearNuevaRutina(nombre);
+
+  if (rutinaEnEdicionId) {
+    actualizarRutina(rutinaEnEdicionId, nombre);
+  } else {
+    crearNuevaRutina(nombre);
+  }
 });
 
 // Cerrar al hacer clic en la X o en Cancelar
@@ -2621,10 +3004,47 @@ btnFinalizar?.addEventListener('click', async () => {
   }
 
   // ============================================================
+  // VALIDACIÓN BLOQUEANTE: inputs con datos sin checkbox
+  // ============================================================
+  // Recorremos TODAS las tarjetas y sus series. Si alguna fila
+  // tiene datos en peso o repeticiones PERO el checkbox no está
+  // marcado, BLOQUEAMOS la finalización.
+  //
+  // Esto evita que el usuario "pierda" datos porque se olvidó
+  // de marcar el check. Le pedimos que los marque o los borre.
+  let hayBloqueo = false;
+  for (const card of cards) {
+    const serieRows = card.querySelectorAll('.serie-row');
+    for (const row of serieRows) {
+      const inputPeso = row.querySelector('input[data-campo="peso"]');
+      const inputReps = row.querySelector('input[data-campo="repeticiones"]');
+      const checkbox  = row.querySelector('.check-serie');
+
+      const tienePeso = inputPeso && inputPeso.value.trim() !== '';
+      const tieneReps = inputReps && inputReps.value.trim() !== '';
+
+      // Si hay datos en algún input pero el checkbox NO está marcado
+      if ((tienePeso || tieneReps) && checkbox && !checkbox.checked) {
+        hayBloqueo = true;
+        break; // salimos del bucle interno
+      }
+    }
+    if (hayBloqueo) break; // salimos del bucle externo
+  }
+
+  if (hayBloqueo) {
+    mostrarToast(
+      'No puedes terminar el entrenamiento porque tienes campos con datos sin marcar. Por favor, márcalos como hechos o quítalos.',
+      'error'
+    );
+    return;
+  }
+
+  // ============================================================
   // VALIDACIÓN: si NO hay ejercicios con datos, abortamos
   // ============================================================
   if (ejercicios.length === 0) {
-    alert('⚠️ No hay ejercicios con datos para guardar.\nCargá peso y repeticiones en al menos un ejercicio.');
+    mostrarToast('No hay ejercicios con datos para guardar. Completá al menos un ejercicio.', 'error');
     return;
   }
 
@@ -2722,6 +3142,42 @@ btnFinalizar?.addEventListener('click', async () => {
 
     // 1. Mostrar banner de éxito rápido
     mostrarExito('✅ ¡Entrenamiento guardado!');
+
+    // ============================================================
+    // PASO 2 — Sincronización automática de la rutina base (PUT)
+    // ============================================================
+    // Si este entrenamiento pertenece a una rutina existente,
+    // actualizamos la plantilla con los ejercicios actuales
+    // (incluyendo los agregados "al vuelo").
+    //
+    // Es fire-and-forget: no bloquea el flujo de éxito. Si falla,
+    // solo se loguea en consola — el entrenamiento ya se guardó.
+    if (rutinaActualId) {
+      const allCards = document.querySelectorAll('#contenedor-ejercicios .card');
+      const idsEjercicios = [];
+      for (const card of allCards) {
+        const ejId = Number(card.dataset.ejercicioId);
+        if (ejId) idsEjercicios.push(ejId);
+      }
+
+      const descripcion = descripcionEl?.textContent?.trim() || null;
+
+      fetch(`/api/rutinas/${rutinaActualId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token,
+        },
+        body: JSON.stringify({
+          nombre: rutinaActivaNombre || 'Rutina',
+          descripcion: descripcion,
+          ejercicios_ids: idsEjercicios,
+        }),
+      }).catch(err => {
+        console.error('Error al sincronizar plantilla de rutina:', err.message);
+      });
+    }
+
     limpiarEstadoEntrenamiento();
 
     // 2. Limpiar vista y volver al Dashboard después de 1.5s
@@ -2965,6 +3421,28 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && panelDetalle && !panelDetalle.classList.contains('hidden')) {
     cerrarPanelDetalle();
   }
+});
+
+// ============================================================
+// EVENTO: editar rutina (delegado en el contenedor)
+// ============================================================
+// Usamos delegación porque las tarjetas se recrean cada vez
+// que se refresca la lista (cargarRutinasUsuario). Al estar
+// fuera de DOMContentLoaded no se acumulan listeners.
+rutinasContainer?.addEventListener('click', async (e) => {
+  const btnEditar = e.target.closest('.btn-editar-rutina');
+  if (!btnEditar) return;
+
+  const rutinaId = Number(btnEditar.dataset.rutinaId);
+  if (!rutinaId) return;
+
+  // Si hay entrenamiento activo, no permitir editar
+  if (entrenamientoActivo) {
+    mostrarToast('Finalizá el entrenamiento antes de editar', 'error');
+    return;
+  }
+
+  await abrirModalEdicion(rutinaId);
 });
 
 // ============================================================

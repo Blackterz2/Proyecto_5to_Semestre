@@ -10,7 +10,7 @@
 
 const { Router } = require('express');
 const { verificarToken } = require('../middlewares/authMiddleware');
-const { eliminarCuenta, obtenerPerfil, subirAvatar, upload, postOnboarding } = require('../controllers/usuarioController');
+const { eliminarCuenta, obtenerPerfil, putPerfil, putContrasena, subirAvatar, upload, postOnboarding } = require('../controllers/usuarioController');
 
 const router = Router();
 
@@ -24,6 +24,14 @@ router.get('/me', verificarToken, obtenerPerfil);
 // Multer procesa el archivo ANTES del controlador
 // El campo del formulario debe llamarse 'avatar'
 router.post('/avatar', verificarToken, upload.single('avatar'), subirAvatar);
+
+// PUT /api/usuarios/me - Actualizar nombre del perfil (Hito 2)
+// Genera un nuevo JWT con el nombre actualizado en el payload.
+router.put('/me', verificarToken, putPerfil);
+
+// PUT /api/usuarios/contrasena - Cambiar contraseña (Hito 2)
+// Verifica la contraseña actual antes de cambiarla.
+router.put('/contrasena', verificarToken, putContrasena);
 
 // POST /api/usuarios/onboarding - Completar onboarding del usuario
 router.post('/onboarding', verificarToken, postOnboarding);

@@ -16,7 +16,7 @@
 
 // Importamos el modelo. Notá que importamos UNA FUNCIÓN
 // específica, no todo el modelo. Claridad ante todo.
-const { obtenerRutinaConEjercicios, contarRutinasUsuario, insertarRutina, obtenerRutinasPorUsuario, insertarEjerciciosEnRutina, desactivarRutina } = require('../models/rutinaModel');
+const { actualizarRutinaBasico, reemplazarEjerciciosDeRutina, obtenerRutinaConEjercicios, contarRutinasUsuario, insertarRutina, obtenerRutinasPorUsuario, insertarEjerciciosEnRutina, desactivarRutina } = require('../models/rutinaModel');
 
 // ============================================================
 // getRutina(req, res) - GET /api/rutinas/:id
@@ -273,5 +273,99 @@ async function eliminarRutina(req, res) {
   }
 }
 
+// ============================================================
+// putRutina(req, res) - PUT /api/rutinas/:id
+// ============================================================
+// Actualiza nombre, descripción y ejercicios de una rutina
+// existente del usuario autenticado.
+//
+// ⚠️ El usuario_id viene del TOKEN, nunca del body.
+// ⚠️ Los ejercicios se reemplazan en su TOTALIDAD (no es
+//    un parche). Si el frontend manda 3 IDs, la rutina
+//    termina con esos 3 ejercicios exactos. Lo que tenía
+//    antes se borra.
+//
+// ¿Por qué reemplazar todo y no hacer INSERT/DELETE parcial?
+//   Porque es más simple: el frontend siempre manda el estado
+//   final de los ejercicios. El backend borra todo y mete lo
+//   nuevo en una transacción. Sin lógica de "cuál agregar,
+//   cuál quitar, cuál mover".
+async function putRutina(req, res) {
+  try {
+    const rutinaId = Number(req.params.id);
+    const usuarioId = req.usuario.usuario_id;
+
+    // ============================================================
+    // 1. VALIDAR ID
+    // ============================================================
+    if (isNaN(rutinaId)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'El ID de la rutina debe ser un número válido',
+      });
+    }
+
+    // ============================================================
+    // 2. VALIDAR CAMPOS MÍNIMOS
+    // ============================================================
+    const { nombre, descripcion, ejercicios_ids } = req.body;
+
+    if (!nombre || typeof nombre !== 'string' || nombre.trim().length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'El nombre de la rutina es obligatorio',
+      });
+    }
+
+    // ============================================================
+    // 3. ACTUALIZAR DATOS BÁSICOS
+    // ============================================================
+    const affectedRows = await actualizarRutinaBasico(
+      rutinaId,
+      usuarioId,
+      nombre.trim(),
+      descripcion ? descripcion.trim() : null
+    );
+
+    // Si no se afectó ninguna fila: la rutina no existe, no
+    // pertenece al usuario, o está desactivada.
+    if (affectedRows === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Rutina no encontrada o no tienes permiso para editarla',
+      });
+    }
+
+    // ============================================================
+    // 4. REEMPLAZAR EJERCICIOS (SI VIENEN EN EL BODY)
+    // ============================================================
+    if (ejercicios_ids && Array.isArray(ejercicios_ids)) {
+      const idsValidos = ejercicios_ids
+        .map(id => Number(id))
+        .filter(id => Number.isFinite(id));
+
+      await reemplazarEjerciciosDeRutina(rutinaId, usuarioId, idsValidos);
+    }
+
+    // ============================================================
+    // 5. DEVOLVER LA RUTINA ACTUALIZADA
+    // ============================================================
+    // Re-leemos de la DB para devolver el estado fresco
+    const rutinaActualizada = await obtenerRutinaConEjercicios(rutinaId, usuarioId);
+
+    res.json({
+      status: 'ok',
+      message: 'Rutina actualizada exitosamente',
+      data: rutinaActualizada,
+    });
+  } catch (error) {
+    console.error('Error al actualizar rutina:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error interno del servidor',
+    });
+  }
+}
+
 // Exportamos las funciones para que la ruta las use
-module.exports = { getRutina, crearRutina, getRutinasDelUsuario, eliminarRutina };
+module.exports = { getRutina, crearRutina, getRutinasDelUsuario, eliminarRutina, putRutina };

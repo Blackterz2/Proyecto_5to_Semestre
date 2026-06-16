@@ -52,6 +52,45 @@ async function actualizarAvatar(usuarioId, avatarUrl) {
 }
 
 // ============================================================
+// actualizarPerfil(usuarioId, nombre)
+// ============================================================
+// Actualiza el nombre del usuario autenticado.
+async function actualizarPerfil(usuarioId, nombre) {
+  const [resultado] = await pool.execute(
+    `UPDATE usuarios SET nombre = ? WHERE id = ?`,
+    [nombre, usuarioId]
+  );
+  return resultado.affectedRows > 0;
+}
+
+// ============================================================
+// obtenerPasswordUsuario(usuarioId)
+// ============================================================
+// Obtiene EXCLUSIVAMENTE el hash de la contraseña del usuario.
+// Se usa para verificar la contraseña actual al cambiarla.
+// NOTA: No incluir otros campos por seguridad — este método
+// solo existe para el flujo de cambio de contraseña.
+async function obtenerPasswordUsuario(usuarioId) {
+  const [rows] = await pool.execute(
+    `SELECT password FROM usuarios WHERE id = ?`,
+    [usuarioId]
+  );
+  return rows.length > 0 ? rows[0].password : null;
+}
+
+// ============================================================
+// cambiarContrasena(usuarioId, hashNueva)
+// ============================================================
+// Reemplaza el hash de la contraseña por uno nuevo.
+async function cambiarContrasena(usuarioId, hashNueva) {
+  const [resultado] = await pool.execute(
+    `UPDATE usuarios SET password = ? WHERE id = ?`,
+    [hashNueva, usuarioId]
+  );
+  return resultado.affectedRows > 0;
+}
+
+// ============================================================
 // completarOnboarding(usuarioId, datos)
 // ============================================================
 // Guarda los datos biométricos y marca onboarding como completo.
@@ -66,4 +105,4 @@ async function completarOnboarding(usuarioId, datos) {
   return resultado.affectedRows > 0;
 }
 
-module.exports = { desactivarUsuario, obtenerUsuarioPorId, actualizarAvatar, completarOnboarding };
+module.exports = { desactivarUsuario, obtenerUsuarioPorId, actualizarAvatar, completarOnboarding, actualizarPerfil, obtenerPasswordUsuario, cambiarContrasena };

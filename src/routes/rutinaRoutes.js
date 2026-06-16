@@ -16,7 +16,7 @@
 //     qué URL ejecuta qué función. Sin sorpresas.
 
 const { Router } = require('express');
-const { getRutina, crearRutina, getRutinasDelUsuario, eliminarRutina } = require('../controllers/rutinaController');
+const { getRutina, crearRutina, getRutinasDelUsuario, eliminarRutina, putRutina } = require('../controllers/rutinaController');
 const { verificarToken } = require('../middlewares/authMiddleware');
 
 const router = Router();
@@ -65,5 +65,18 @@ router.get('/:id', verificarToken, getRutina);
 // No borra la rutina de la BD, solo marca activa = FALSE para
 // conservar el historial de entrenamientos.
 router.delete('/:id', verificarToken, eliminarRutina);
+
+// ============================================================
+// PUT /:id - Actualizar una rutina existente
+// ============================================================
+// 🔒 Protegida con JWT: solo el dueño puede modificar su rutina.
+//
+// Body esperado:
+//   { nombre: "Full Body", descripcion: "...", ejercicios_ids: [1,5,3] }
+//
+// NOTA: ejercicios_ids REEMPLAZA todos los ejercicios actuales.
+// NO es un parche — si mandás [1,5,3], la rutina termina con
+// exactamente esos 3 ejercicios en ese orden.
+router.put('/:id', verificarToken, putRutina);
 
 module.exports = router;

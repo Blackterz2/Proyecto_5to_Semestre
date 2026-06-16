@@ -12,7 +12,9 @@
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-const { desactivarUsuario, obtenerUsuarioPorId, actualizarAvatar, completarOnboarding } = require('../models/usuarioModel');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const { desactivarUsuario, obtenerUsuarioPorId, actualizarAvatar, completarOnboarding, actualizarPerfil, obtenerPasswordUsuario, cambiarContrasena } = require('../models/usuarioModel');
 const pool = require('../config/db');
 
 // ============================================================
@@ -123,6 +125,168 @@ async function obtenerPerfil(req, res) {
 
   } catch (error) {
     console.error('Error al obtener perfil:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error interno del servidor',
+    });
+  }
+}
+
+// ============================================================
+// putPerfil(req, res) - PUT /api/usuarios/me
+// ============================================================
+// Actualiza el nombre del usuario autenticado y genera un
+// NUEVO token JWT con el nombre actualizado en el payload.
+//
+// ¿Por qué un nuevo token?
+//   El frontend extrae el nombre del token para mostrarlo
+//   en la UI (extraerNombreDelToken). Si no regeneramos el
+//   token, el nombre viejo queda cacheado hasta el próximo
+//   login. El nuevo token mantiene la misma sesión (mismo
+//   usuario_id, misma expiración) pero con el nombre nuevo.
+async function putPerfil(req, res) {
+  try {
+    const usuarioId = req.usuario.usuario_id;
+    const { nombre } = req.body;
+
+    // ============================================================
+    // VALIDACIÓN
+    // ============================================================
+    if (!nombre || typeof nombre !== 'string' || nombre.trim().length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'El nombre es obligatorio',
+      });
+    }
+
+    if (nombre.trim().length > 50) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'El nombre no puede superar los 50 caracteres',
+      });
+    }
+
+    // ============================================================
+    // ACTUALIZAR EN BASE DE DATOS
+    // ============================================================
+    const nombreLimpio = nombre.trim();
+    const actualizado = await actualizarPerfil(usuarioId, nombreLimpio);
+
+    if (!actualizado) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Usuario no encontrado',
+      });
+    }
+
+    // ============================================================
+    // GENERAR NUEVO TOKEN CON EL NOMBRE ACTUALIZADO
+    // ============================================================
+    const payload = {
+      usuario_id: usuarioId,
+      nombre:     nombreLimpio,
+      email:      req.usuario.email, // mantener el email del token original
+    };
+
+    const secret = process.env.JWT_SECRET;
+    if (!secret || secret === 'mi_clave_secreta_cambiame_en_produccion') {
+      console.error('⚠️ JWT_SECRET no configurado en .env');
+      return res.status(500).json({
+        status: 'error',
+        message: 'Error de configuración del servidor',
+      });
+    }
+
+    const nuevoToken = jwt.sign(payload, secret, { expiresIn: '7d' });
+
+    // ============================================================
+    // RESPONDER
+    // ============================================================
+    res.json({
+      status: 'ok',
+      data: { nombre: nombreLimpio },
+      token: nuevoToken,
+    });
+
+  } catch (error) {
+    console.error('Error al actualizar perfil:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error interno del servidor',
+    });
+  }
+}
+
+// ============================================================
+// putContrasena(req, res) - PUT /api/usuarios/contrasena
+// ============================================================
+// Cambia la contraseña del usuario autenticado.
+//
+// FLUJO:
+//   1. Recibe { passwordActual, passwordNueva }
+//   2. Busca el hash actual en la DB
+//   3. Verifica que passwordActual coincida con bcrypt.compare()
+//   4. Valida que passwordNueva tenga mínimo 8 caracteres
+//   5. Hashea la nueva contraseña
+//   6. Actualiza en la DB
+async function putContrasena(req, res) {
+  try {
+    const usuarioId = req.usuario.usuario_id;
+    const { passwordActual, passwordNueva } = req.body;
+
+    // ============================================================
+    // VALIDACIONES
+    // ============================================================
+    if (!passwordActual || !passwordNueva) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Los campos passwordActual y passwordNueva son obligatorios',
+      });
+    }
+
+    if (passwordNueva.length < 8) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'La nueva contraseña debe tener al menos 8 caracteres',
+      });
+    }
+
+    // ============================================================
+    // VERIFICAR CONTRASEÑA ACTUAL
+    // ============================================================
+    const hashActual = await obtenerPasswordUsuario(usuarioId);
+
+    if (!hashActual) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Usuario no encontrado',
+      });
+    }
+
+    const passwordValida = await bcrypt.compare(passwordActual, hashActual);
+
+    if (!passwordValida) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Contraseña actual incorrecta',
+      });
+    }
+
+    // ============================================================
+    // HASHEAR Y GUARDAR NUEVA CONTRASEÑA
+    // ============================================================
+    const saltRounds = 10;
+    const hashNueva = await bcrypt.hash(passwordNueva, saltRounds);
+
+    await cambiarContrasena(usuarioId, hashNueva);
+
+    res.json({
+      status: 'ok',
+      message: 'Contraseña actualizada',
+    });
+
+  } catch (error) {
+    console.error('Error al cambiar contraseña:', error.message);
     res.status(500).json({
       status: 'error',
       message: 'Error interno del servidor',
@@ -361,4 +525,4 @@ async function postOnboarding(req, res) {
   }
 }
 
-module.exports = { eliminarCuenta, obtenerPerfil, subirAvatar, upload, postOnboarding };
+module.exports = { eliminarCuenta, obtenerPerfil, putPerfil, putContrasena, subirAvatar, upload, postOnboarding };
