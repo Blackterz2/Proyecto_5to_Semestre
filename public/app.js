@@ -326,6 +326,40 @@ function guardarEstadoEntrenamiento() {
   };
 
   localStorage.setItem('entrenamiento_draft', JSON.stringify(draft));
+
+  // ============================================================
+  // Mostrar feedback visual de guardado (Hito 5 — Mejora 1)
+  // ============================================================
+  // Crea un elemento flotante "✓ Guardado" que aparece por
+  // 1.5 segundos cada vez que se guarda el draft.
+  // clearTimeout evita parpadeos si se llama seguido.
+  let feedbackEl = document.getElementById('draft-guardado-feedback');
+  if (!feedbackEl) {
+    feedbackEl = document.createElement('div');
+    feedbackEl.id = 'draft-guardado-feedback';
+    feedbackEl.style.cssText = `
+      position: fixed;
+      bottom: 80px;
+      right: 16px;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 9999;
+    `;
+    feedbackEl.textContent = '✓ Guardado';
+    document.body.appendChild(feedbackEl);
+  }
+
+  feedbackEl.style.opacity = '1';
+  clearTimeout(feedbackEl._timeout);
+  feedbackEl._timeout = setTimeout(() => {
+    feedbackEl.style.opacity = '0';
+  }, 1500);
 }
 
 // limpiarEstadoEntrenamiento() — Elimina el draft de localStorage
@@ -1296,6 +1330,14 @@ async function cargarHistorial() {
   // ============================================================
   // CARGAR DATOS DEL PERFIL (nombre, email, avatar) desde el server
   // ============================================================
+  // Mostrar loading state (Hito 5 — Mejora 2C)
+  const perfilLoadingEl = document.createElement('div');
+  perfilLoadingEl.id = 'perfil-loading-indicator';
+  perfilLoadingEl.className = 'loading';
+  perfilLoadingEl.style.cssText = 'padding: 24px; text-align: center;';
+  perfilLoadingEl.textContent = 'Cargando perfil...';
+  perfilView?.prepend(perfilLoadingEl);
+
   try {
     const respPerfil = await fetch('/api/usuarios/me', {
       headers: { 'Authorization': 'Bearer ' + token },
@@ -1335,6 +1377,9 @@ async function cargarHistorial() {
     // Inicializar formularios de editar nombre y cambiar contraseña
     inicializarFormulariosPerfil();
 
+    // Remover loading indicator del perfil
+    document.getElementById('perfil-loading-indicator')?.remove();
+
   } catch {
     // Si hay error de red, usar datos del JWT como fallback
     if (perfilEmail) perfilEmail.textContent = extraerEmailDelToken() || 'usuario@email.com';
@@ -1344,6 +1389,11 @@ async function cargarHistorial() {
       perfilAvatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(nombre)}&background=e94560&color=fff&size=128&font-size=0.4&rounded=true`;
       perfilAvatarImg.classList.remove('hidden');
     }
+  }
+
+  // Mostrar loading state del historial (Hito 5 — Mejora 2B)
+  if (historialContainer) {
+    historialContainer.innerHTML = '<div class="loading" style="padding: 24px; text-align: center;">Cargando historial...</div>';
   }
 
   try {
@@ -1408,13 +1458,15 @@ async function cargarHistorial() {
     // Cada fila tiene un data-sesion-id para poder identificar
     // la sesión si después queremos agregar un "ver detalle".
     // ============================================================
-    let html = `
+      let html = `
       <table class="historial-table">
         <thead>
           <tr>
             <th>Fecha</th>
             <th>Rutina</th>
             <th>Duración</th>
+            <th>Volumen</th>
+            <th>Series</th>
             <th>Notas</th>
           </tr>
         </thead>
@@ -1444,11 +1496,23 @@ async function cargarHistorial() {
         duracionTexto = `⏱️ ${sesion.duracion_minutos} min`;
       }
 
+      let volumenTexto = '—';
+      if (sesion.volumen_total_kg && Number(sesion.volumen_total_kg) > 0) {
+        volumenTexto = `💪 ${Number(sesion.volumen_total_kg).toLocaleString('es-ES')} kg`;
+      }
+
+      let seriesTexto = '—';
+      if (sesion.total_series && sesion.total_series > 0) {
+        seriesTexto = `🔄 ${sesion.total_series} series`;
+      }
+
       html += `
         <tr class="clickable-row">
           <td>📅 ${fechaFormateada}</td>
           <td><span class="rutina-badge">${rutinaNombre}</span></td>
           <td>${duracionTexto}</td>
+          <td>${volumenTexto}</td>
+          <td>${seriesTexto}</td>
           <td>${notas}</td>
         </tr>
       `;
@@ -1706,6 +1770,9 @@ async function cargarRutinasUsuario() {
   if (!token) return;
 
   if (!rutinasContainer) return;
+
+  // Mostrar loading state (Hito 5 — Mejora 2A)
+  rutinasContainer.innerHTML = '<div class="loading" style="padding: 24px; text-align: center;">Cargando rutinas...</div>';
 
   try {
     const respuesta = await fetch('/api/rutinas/', {
@@ -2981,6 +3048,7 @@ btnFinalizar?.addEventListener('click', async () => {
         numero_serie: index + 1, // 1-indexed como en la DB
         peso: peso,
         repeticiones: repeticiones,
+        completada: true,
       });
     });
 
