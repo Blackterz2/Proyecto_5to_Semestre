@@ -1486,6 +1486,125 @@ async function cargarRutina(rutinaId) {
   }
 }
 
+let graficoInstancia = null;
+
+// ============================================================
+// renderGraficoVolumen(historial)
+// ============================================================
+// Toma el array de sesiones del historial y dibuja un gráfico
+// de barras con el volumen semanal usando Chart.js.
+//
+// Si el historial está vacío, oculta el contenedor.
+// Incluye un <select> para filtrar por rutina específica.
+// ============================================================
+function renderGraficoVolumen(historial) {
+  const container = document.getElementById('grafico-volumen-container');
+  const canvas = document.getElementById('grafico-volumen');
+  const selectRutina = document.getElementById('grafico-filtro-rutina');
+
+  if (!container || !canvas || !historial || historial.length === 0) {
+    if (container) container.style.display = 'none';
+    return;
+  }
+
+  // Poblar el select con las rutinas únicas del historial
+  const rutinasUnicas = [...new Set(historial.map(s => s.rutina_nombre).filter(Boolean))];
+  selectRutina.innerHTML = '<option value="todas">Todas las rutinas</option>';
+  rutinasUnicas.forEach(nombre => {
+    const opt = document.createElement('option');
+    opt.value = nombre;
+    opt.textContent = nombre;
+    selectRutina.appendChild(opt);
+  });
+
+  // Función interna para dibujar con los datos filtrados
+  function dibujar(filtroRutina) {
+    const datos = filtroRutina === 'todas'
+      ? historial
+      : historial.filter(s => s.rutina_nombre === filtroRutina);
+
+    // Agrupar por semana (lunes de cada semana como clave)
+    const porSemana = {};
+    datos.forEach(sesion => {
+      if (!sesion.fecha || !sesion.volumen_total_kg) return;
+    // T00:00:00 fuerza interpretación local — evita bug de zona horaria UTC
+      const fecha = new Date(sesion.fecha + 'T00:00:00');
+      const diaSemana = fecha.getDay() || 7; // 0=domingo → 7
+      const lunes = new Date(fecha);
+      lunes.setDate(fecha.getDate() - diaSemana + 1);
+      const clave = lunes.toISOString().split('T')[0];
+      porSemana[clave] = (porSemana[clave] || 0) + Number(sesion.volumen_total_kg);
+    });
+
+    // Ordenar semanas cronológicamente y tomar las últimas 8
+    const semanas = Object.keys(porSemana).sort().slice(-8);
+    const labels = semanas.map(fecha => {
+      const d = new Date(fecha + 'T00:00:00');
+      return `${d.getDate()}/${d.getMonth() + 1}`;
+    });
+    const valores = semanas.map(s => Math.round(porSemana[s]));
+
+    // Destruir instancia anterior si existe
+    if (graficoInstancia) {
+      graficoInstancia.destroy();
+      graficoInstancia = null;
+    }
+
+    graficoInstancia = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Volumen (kg)',
+          data: valores,
+          backgroundColor: 'rgba(108, 99, 255, 0.7)',
+          borderColor: 'rgba(108, 99, 255, 1)',
+          borderWidth: 1,
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${ctx.parsed.y.toLocaleString('es-ES')} kg`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 11 } }
+          },
+          y: {
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            ticks: {
+              color: 'rgba(255,255,255,0.6)',
+              font: { size: 11 },
+              callback: val => val.toLocaleString('es-ES') + ' kg'
+            },
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+
+  // Dibujar con "todas" por defecto
+  dibujar('todas');
+  container.style.display = 'block';
+
+  // Listener del filtro — remover anterior con cloneNode para
+  // evitar listeners fantasma
+  const nuevoSelect = selectRutina.cloneNode(true);
+  nuevoSelect.innerHTML = selectRutina.innerHTML;
+  selectRutina.parentNode.replaceChild(nuevoSelect, selectRutina);
+  nuevoSelect.addEventListener('change', e => dibujar(e.target.value));
+}
+
 // ============================================================
 // cargarHistorial()
 // ============================================================
@@ -1637,6 +1756,9 @@ async function cargarHistorial() {
     // Cada fila tiene un data-sesion-id para poder identificar
     // la sesión si después queremos agregar un "ver detalle".
     // ============================================================
+    // Renderizar gráfico de volumen semanal antes de la tabla
+    renderGraficoVolumen(historial);
+
       let html = `
       <table class="historial-table">
         <thead>
