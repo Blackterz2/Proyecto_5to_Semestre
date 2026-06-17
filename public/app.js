@@ -109,6 +109,13 @@ const btnRecomendacionNo   = document.getElementById('btn-recomendacion-no');
 let onboardingData = null;
 
 // ============================================================
+// PAGINACIÓN DEL HISTORIAL
+// ============================================================
+let historialPaginaActual = 1;
+const HISTORIAL_POR_PAGINA = 10;
+let historialDatosCompletos = [];
+
+// ============================================================
 // PANEL DE DETALLE DE EJERCICIO (Hito 15)
 // ============================================================
 const panelDetalle       = document.getElementById('panel-detalle-ejercicio');
@@ -1607,6 +1614,147 @@ function renderGraficoVolumen(historial) {
 }
 
 // ============================================================
+// renderTablaHistorial(pagina)
+// ============================================================
+// Renderiza una página de la tabla del historial a partir del
+// cache historialDatosCompletos. Agrega controles Anterior /
+// Siguiente si hay más de una página.
+// ============================================================
+function renderTablaHistorial(pagina) {
+  historialPaginaActual = pagina;
+  const total = historialDatosCompletos.length;
+  const totalPaginas = Math.ceil(total / HISTORIAL_POR_PAGINA);
+
+  const inicio = (pagina - 1) * HISTORIAL_POR_PAGINA;
+  const fin = inicio + HISTORIAL_POR_PAGINA;
+  const sesiones = historialDatosCompletos.slice(inicio, fin);
+
+  let html = `
+    <table class="historial-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Rutina</th>
+          <th>Duración</th>
+          <th>Volumen</th>
+          <th>Series</th>
+          <th>Notas</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  for (const sesion of sesiones) {
+    const fechaParts = sesion.fecha ? sesion.fecha.split('-') : [];
+    let fechaFormateada = sesion.fecha || '-';
+    if (fechaParts.length === 3) {
+      const meses = [
+        'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+      ];
+      const dia   = parseInt(fechaParts[2], 10);
+      const mes   = meses[parseInt(fechaParts[1], 10) - 1] || fechaParts[1];
+      const anio  = fechaParts[0];
+      fechaFormateada = `${dia} de ${mes}, ${anio}`;
+    }
+
+    const rutinaNombre = sesion.rutina_nombre || 'Rutina';
+    const notas = sesion.notas || '—';
+    let duracionTexto = '—';
+    if (sesion.duracion_minutos) {
+      duracionTexto = `⏱️ ${sesion.duracion_minutos} min`;
+    }
+
+    let volumenTexto = '—';
+    if (sesion.volumen_total_kg && Number(sesion.volumen_total_kg) > 0) {
+      volumenTexto = `💪 ${Number(sesion.volumen_total_kg).toLocaleString('es-ES')} kg`;
+    }
+
+    let seriesTexto = '—';
+    if (sesion.total_series && sesion.total_series > 0) {
+      seriesTexto = `🔄 ${sesion.total_series} series`;
+    }
+
+    html += `
+      <tr class="clickable-row">
+        <td>📅 ${fechaFormateada}</td>
+        <td><span class="rutina-badge">${rutinaNombre}</span></td>
+        <td>${duracionTexto}</td>
+        <td>${volumenTexto}</td>
+        <td>${seriesTexto}</td>
+        <td>${notas}</td>
+      </tr>
+    `;
+  }
+
+  html += `
+      </tbody>
+    </table>
+  `;
+
+  // ── Controles de paginación ──
+  if (totalPaginas > 1) {
+    html += `
+      <div id="historial-paginacion" style="
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 20px 0 8px;
+        font-size: 14px;
+      ">
+        <button
+          id="hist-btn-prev"
+          style="
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: inherit;
+            border-radius: 6px;
+            padding: 6px 14px;
+            cursor: pointer;
+            opacity: ${pagina === 1 ? '0.4' : '1'};
+          "
+          ${pagina === 1 ? 'disabled' : ''}
+        >← Anterior</button>
+
+        <span style="opacity: 0.7;">
+          Página ${pagina} de ${totalPaginas}
+          <span style="opacity:0.5; font-size:12px;">
+            (${total} sesiones)
+          </span>
+        </span>
+
+        <button
+          id="hist-btn-next"
+          style="
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: inherit;
+            border-radius: 6px;
+            padding: 6px 14px;
+            cursor: pointer;
+            opacity: ${pagina === totalPaginas ? '0.4' : '1'};
+          "
+          ${pagina === totalPaginas ? 'disabled' : ''}
+        >Siguiente →</button>
+      </div>
+    `;
+  }
+
+  if (historialContainer) {
+    historialContainer.innerHTML = html;
+  }
+
+  // Agregar listeners a los botones de paginación
+  document.getElementById('hist-btn-prev')?.addEventListener('click', () => {
+    if (historialPaginaActual > 1) renderTablaHistorial(historialPaginaActual - 1);
+  });
+  document.getElementById('hist-btn-next')?.addEventListener('click', () => {
+    if (historialPaginaActual < totalPaginas) renderTablaHistorial(historialPaginaActual + 1);
+  });
+}
+
+// ============================================================
 // cargarHistorial()
 // ============================================================
 // Obtiene el historial de entrenamientos del usuario autenticado
@@ -1758,76 +1906,15 @@ async function cargarHistorial() {
     // la sesión si después queremos agregar un "ver detalle".
     // ============================================================
     // Renderizar gráfico de volumen semanal antes de la tabla
+    // Guardar datos completos en cache para paginación
+    historialDatosCompletos = historial;
+    historialPaginaActual = 1;
+
+    // El gráfico recibe TODOS los datos — no la página actual
     renderGraficoVolumen(historial);
 
-      let html = `
-      <table class="historial-table">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Rutina</th>
-            <th>Duración</th>
-            <th>Volumen</th>
-            <th>Series</th>
-            <th>Notas</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-
-    for (const sesion of historial) {
-      // Formateamos la fecha para que se vea linda
-      // De "2026-06-07" a "7 de junio, 2026"
-      const fechaParts = sesion.fecha ? sesion.fecha.split('-') : [];
-      let fechaFormateada = sesion.fecha || '-';
-      if (fechaParts.length === 3) {
-        const meses = [
-          'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-          'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-        ];
-        const dia   = parseInt(fechaParts[2], 10);
-        const mes   = meses[parseInt(fechaParts[1], 10) - 1] || fechaParts[1];
-        const anio  = fechaParts[0];
-        fechaFormateada = `${dia} de ${mes}, ${anio}`;
-      }
-
-      const rutinaNombre = sesion.rutina_nombre || 'Rutina';
-      const notas = sesion.notas || '—';
-      let duracionTexto = '—';
-      if (sesion.duracion_minutos) {
-        duracionTexto = `⏱️ ${sesion.duracion_minutos} min`;
-      }
-
-      let volumenTexto = '—';
-      if (sesion.volumen_total_kg && Number(sesion.volumen_total_kg) > 0) {
-        volumenTexto = `💪 ${Number(sesion.volumen_total_kg).toLocaleString('es-ES')} kg`;
-      }
-
-      let seriesTexto = '—';
-      if (sesion.total_series && sesion.total_series > 0) {
-        seriesTexto = `🔄 ${sesion.total_series} series`;
-      }
-
-      html += `
-        <tr class="clickable-row">
-          <td>📅 ${fechaFormateada}</td>
-          <td><span class="rutina-badge">${rutinaNombre}</span></td>
-          <td>${duracionTexto}</td>
-          <td>${volumenTexto}</td>
-          <td>${seriesTexto}</td>
-          <td>${notas}</td>
-        </tr>
-      `;
-    }
-
-    html += `
-        </tbody>
-      </table>
-    `;
-
-    if (historialContainer) {
-      historialContainer.innerHTML = html;
-    }
+    // La tabla recibe solo la página 1
+    renderTablaHistorial(1);
 
   } catch (error) {
     console.error('Error al cargar historial:', error.message);

@@ -2027,6 +2027,49 @@ const fecha = new Date(fechaLimpia + 'T00:00:00');
 | `public/app.js` | `renderGraficoVolumen()` — split('T')[0] antes de construir fecha |
 
 ---
+## 29. Hito 12 — Paginación del Historial
+
+> **Objetivo:** Paginar la tabla del historial en páginas de 10 sesiones para evitar listados infinitos cuando el usuario acumula muchas sesiones.
+
+### Variables Globales
+
+```js
+let historialPaginaActual = 1;
+const HISTORIAL_POR_PAGINA = 10;
+let historialDatosCompletos = []; // cache del array completo
+```
+
+### Función `renderTablaHistorial(pagina)`
+
+Extraída del bloque de renderizado de `cargarHistorial()`. Recibe un número de página, hace `slice()` del cache `historialDatosCompletos` y renderiza solo esas 10 sesiones. Si `totalPaginas > 1`, agrega controles Anterior/Siguiente con estilo inline:
+
+- Botón `disabled` + `opacity: 0.4` para feedback visual
+- Texto: "Página X de Y (N sesiones)"
+- Listeners con `addEventListener` que llaman a `renderTablaHistorial(página ± 1)`
+
+### Flujo en `cargarHistorial()`
+
+```
+historialDatosCompletos = historial;  // guardar cache
+historialPaginaActual = 1;            // resetear página
+renderGraficoVolumen(historial);      // gráfico con TODOS los datos
+renderTablaHistorial(1);              // tabla con página 1
+```
+
+### Restricciones Respetadas
+
+- No se hace fetch extra al cambiar de página — solo reslicea el cache
+- `renderGraficoVolumen()` recibe el array completo, no la página actual
+- Si hay 10 o menos sesiones, `totalPaginas === 1` y los controles no se muestran
+- `historialPaginaActual` se resetea a 1 en cada nueva carga de datos
+
+### Archivo Modificado
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/app.js` | Variables globales + `renderTablaHistorial()` + reemplazo de bloque en `cargarHistorial()` |
+
+---
 
 *Documentación generada durante el desarrollo del proyecto Blackterz.*
 *Cada hito fue construido con SDD (Spec-Driven Development): primero la especificación, después el código.*
