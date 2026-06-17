@@ -130,13 +130,14 @@ async function guardarSesionCompleta(datosSesion) {
       // ============================================================
       for (const serie of ejercicio.series) {
         await connection.execute(
-          `INSERT INTO sesion_series (sesion_ejercicio_id, numero_serie, repeticiones, peso)
-           VALUES (?, ?, ?, ?)`,
+          `INSERT INTO sesion_series (sesion_ejercicio_id, numero_serie, repeticiones, peso, completada)
+           VALUES (?, ?, ?, ?, ?)`,
           [
             sesionEjercicioId,
             serie.numero_serie,
             serie.repeticiones,
             serie.peso || 0,
+            serie.completada ? 1 : 0,
           ]
         );
       }
@@ -203,8 +204,11 @@ async function guardarSesionCompleta(datosSesion) {
 //       id: 5,
 //       fecha: "2026-06-07",
 //       notas: "Buena sesión",
+//       duracion_minutos: 45,
 //       created_at: "2026-06-07T21:30:00.000Z",
-//       rutina_nombre: "Full Body"   ← viene del JOIN con rutinas
+//       rutina_nombre: "Full Body",
+//       volumen_total_kg: 3450,       ← suma(peso × reps) de series completadas
+//       total_series: 12               ← cantidad de series completadas
 //     }
 //   ]
 //
@@ -224,10 +228,15 @@ async function obtenerHistorialUsuario(usuario_id) {
       se.notas,
       se.duracion_minutos,
       se.created_at,
-      r.nombre AS rutina_nombre
+      r.nombre                                        AS rutina_nombre,
+      COALESCE(SUM(ss.peso * ss.repeticiones), 0)     AS volumen_total_kg,
+      COALESCE(COUNT(ss.id), 0)                       AS total_series
     FROM sesiones_entrenamiento se
     LEFT JOIN rutinas r ON se.rutina_id = r.id
+    LEFT JOIN sesion_ejercicios sej ON sej.sesion_id = se.id
+    LEFT JOIN sesion_series ss ON ss.sesion_ejercicio_id = sej.id AND ss.completada = 1
     WHERE se.usuario_id = ?
+    GROUP BY se.id, se.fecha, se.notas, se.duracion_minutos, se.created_at, r.nombre
     ORDER BY se.fecha DESC, se.id DESC
   `;
 

@@ -618,6 +618,185 @@ function mostrarToast(mensaje, tipo) {
 }
 
 // ============================================================
+// confirmarAccion({ titulo, mensaje, textoBtnConfirmar, colorBtn, onConfirmar })
+// ============================================================
+// Modal de confirmación genérico para reemplazar confirm() nativo.
+// Crea el modal una sola vez y lo reutiliza.
+//
+// Uso:
+//   confirmarAccion({
+//     titulo: 'Eliminar',
+//     mensaje: '¿Estás seguro?',
+//     textoBtnConfirmar: 'Eliminar',
+//     colorBtn: 'btn-logout',      // 'btn-login' o 'btn-logout'
+//     onConfirmar: () => { ... }
+//   });
+function confirmarAccion({ titulo, mensaje, textoBtnConfirmar = 'Confirmar', colorBtn = 'btn-login', onConfirmar }) {
+  // Reusar modal si ya existe
+  let overlay = document.getElementById('modal-confirmar-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'modal-confirmar-overlay';
+    overlay.className = 'modal-overlay hidden';
+    overlay.innerHTML = `
+      <div class="modal-content" style="max-width: 420px;">
+        <div class="modal-header">
+          <h3 id="modal-confirmar-titulo"></h3>
+        </div>
+        <div class="modal-body">
+          <p id="modal-confirmar-mensaje" style="margin: 0 0 24px; line-height: 1.5;"></p>
+          <div style="display: flex; gap: 12px; justify-content: flex-end;">
+            <button id="modal-confirmar-cancelar" class="btn-logout">Cancelar</button>
+            <button id="modal-confirmar-ok" class="btn-login">Confirmar</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Cerrar al hacer clic fuera
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) cerrarConfirmar();
+    });
+
+    // Cerrar con Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
+        cerrarConfirmar();
+      }
+    });
+  }
+
+  function cerrarConfirmar() {
+    overlay.classList.add('hidden');
+    // Limpiar listener del botón OK para evitar listeners fantasma
+    const btnOk = document.getElementById('modal-confirmar-ok');
+    btnOk.replaceWith(btnOk.cloneNode(true));
+  }
+
+  // Setear contenido dinámico
+  document.getElementById('modal-confirmar-titulo').textContent = titulo;
+  document.getElementById('modal-confirmar-mensaje').textContent = mensaje;
+
+  const btnOk = document.getElementById('modal-confirmar-ok');
+  btnOk.textContent = textoBtnConfirmar;
+  btnOk.className = colorBtn;
+
+  // Cancelar
+  document.getElementById('modal-confirmar-cancelar').onclick = cerrarConfirmar;
+
+  // Confirmar
+  btnOk.addEventListener('click', () => {
+    cerrarConfirmar();
+    onConfirmar();
+  });
+
+  overlay.classList.remove('hidden');
+}
+
+// ============================================================
+// TOUR DE BIENVENIDA
+// ============================================================
+
+const TOUR_KEY = 'tour_completado_v1';
+
+const PASOS_TOUR = [
+  {
+    titulo: '➕ Creá tu primera rutina',
+    descripcion: 'Hacé clic en "+ Nueva Rutina" para armar tu primer entrenamiento personalizado con los ejercicios que quieras.',
+    elementoId: 'btn-add-rutina',
+    posicion: 'top',
+  },
+  {
+    titulo: '🎯 Empezá a entrenar',
+    descripcion: 'Desde la pestaña Entrenar podés iniciar una sesión, marcar series y registrar tu progreso en tiempo real.',
+    elementoId: 'btn-tab-entrenar',
+    posicion: 'bottom',
+  },
+  {
+    titulo: '👤 Tu perfil y historial',
+    descripcion: 'En Perfil encontrás tu historial de sesiones, podés editar tus datos y cambiar tu contraseña.',
+    elementoId: 'btn-tab-perfil',
+    posicion: 'bottom',
+  },
+];
+
+let pasoActual = 0;
+let elementoResaltado = null;
+
+function iniciarTour() {
+  if (localStorage.getItem(TOUR_KEY)) return;
+
+  pasoActual = 0;
+  document.getElementById('tour-overlay').style.display = 'block';
+  mostrarPasoTour(pasoActual);
+}
+
+function mostrarPasoTour(index) {
+  const paso = PASOS_TOUR[index];
+  const total = PASOS_TOUR.length;
+
+  document.getElementById('tour-paso-label').textContent = `Paso ${index + 1} de ${total}`;
+  document.getElementById('tour-titulo').textContent = paso.titulo;
+  document.getElementById('tour-descripcion').textContent = paso.descripcion;
+
+  document.getElementById('tour-dots').textContent =
+    PASOS_TOUR.map((_, i) => i === index ? '●' : '○').join(' ');
+
+  const btnSig = document.getElementById('tour-btn-siguiente');
+  btnSig.textContent = index === total - 1 ? '¡Entendido! ✓' : 'Siguiente →';
+
+  // Quitar resaltado anterior
+  if (elementoResaltado) {
+    elementoResaltado.style.removeProperty('position');
+    elementoResaltado.style.removeProperty('z-index');
+    elementoResaltado.style.removeProperty('box-shadow');
+    elementoResaltado.style.removeProperty('border-radius');
+  }
+
+  // Resaltar el elemento del paso actual
+  const el = document.getElementById(paso.elementoId);
+  if (el) {
+    elementoResaltado = el;
+    el.style.position = 'relative';
+    el.style.zIndex = '10001';
+    el.style.boxShadow = '0 0 0 4px #6c63ff, 0 0 0 8px rgba(108,99,255,0.3)';
+    el.style.borderRadius = '8px';
+
+    posicionarTooltip(el, paso.posicion);
+  }
+}
+
+function posicionarTooltip(el, posicion) {
+  const rect = el.getBoundingClientRect();
+  const tooltip = document.getElementById('tour-tooltip');
+  const tooltipH = 180;
+  const margen = 16;
+
+  if (posicion === 'top') {
+    tooltip.style.top = `${rect.top - tooltipH - margen}px`;
+  } else {
+    tooltip.style.top = `${rect.bottom + margen}px`;
+  }
+
+  let left = rect.left + rect.width / 2 - 150;
+  left = Math.max(margen, Math.min(left, window.innerWidth - 316));
+  tooltip.style.left = `${left}px`;
+}
+
+function cerrarTour() {
+  if (elementoResaltado) {
+    elementoResaltado.style.removeProperty('position');
+    elementoResaltado.style.removeProperty('z-index');
+    elementoResaltado.style.removeProperty('box-shadow');
+    elementoResaltado.style.removeProperty('border-radius');
+    elementoResaltado = null;
+  }
+  document.getElementById('tour-overlay').style.display = 'none';
+  localStorage.setItem(TOUR_KEY, '1');
+}
+
+// ============================================================
 // cargarCatalogoEjercicios()
 // ============================================================
 // Obtiene TODOS los ejercicios del catálogo desde la API
@@ -1794,6 +1973,7 @@ async function cargarRutinasUsuario() {
     const recomendadas = rutinas.filter(r => r.es_recomendada);
     const misRutinas   = rutinas.filter(r => !r.es_recomendada);
     const total = misRutinas.length;
+    const restantes = 4 - total;
     const limite = total >= 4;
     let html = '';
 
@@ -1832,9 +2012,14 @@ async function cargarRutinasUsuario() {
 
     // Tarjeta para "Añadir nueva" (solo si no se alcanzó el límite y en Mis Rutinas)
     if (!limite) {
+      const textoContador = total >= 3
+        ? `+ Nueva Rutina <span style="font-size:0.75rem; opacity:0.7; display:block; margin-top:4px;">
+             (${restantes} lugar${restantes === 1 ? '' : 'es'} disponible${restantes === 1 ? '' : 's'})
+           </span>`
+        : '+ Nueva Rutina';
       html += `
         <div id="btn-add-rutina" class="rutina-card rutina-card--add">
-          + Nueva Rutina
+          ${textoContador}
         </div>
       `;
     }
@@ -2451,6 +2636,7 @@ async function enviarPostOnboarding(quiereRecomendacion) {
       // Refrescar lista de rutinas
       if (typeof cargarRutinas === 'function') cargarRutinas();
       cargarRutinasUsuario();
+      setTimeout(iniciarTour, 800);
     } else {
       const errData = await res.json();
       console.error('Onboarding error:', errData.message);
@@ -2779,15 +2965,17 @@ contenedorEl?.addEventListener('click', (e) => {
 
     // Confirmación antes de eliminar
     const nombreEj = card.querySelector('.card-title')?.textContent || 'este ejercicio';
-    if (!confirm(`¿Eliminar "${nombreEj}" de la rutina actual?`)) return;
-
-    // Eliminar la tarjeta completa del DOM
-    card.remove();
-
-    // Refrescar la lista de ejercicios extra para que el ejercicio
-    // eliminado vuelva a estar disponible
-    poblarListaEjerciciosExtra(buscadorExtra?.value);
-    guardarEstadoEntrenamiento();
+    confirmarAccion({
+      titulo: 'Eliminar ejercicio',
+      mensaje: `¿Eliminar "${nombreEj}" de la rutina actual?`,
+      textoBtnConfirmar: 'Eliminar',
+      colorBtn: 'btn-logout',
+      onConfirmar: () => {
+        card.remove();
+        poblarListaEjerciciosExtra(buscadorExtra?.value);
+        guardarEstadoEntrenamiento();
+      }
+    });
     return;
   }
 });
@@ -3276,11 +3464,16 @@ btnFinalizar?.addEventListener('click', async () => {
 // y si el usuario confirma, limpiamos la vista y volvemos al
 // Dashboard.
 btnDescartar?.addEventListener('click', () => {
-  const confirmacion = confirm('¿Estás seguro de que deseas descartar el entrenamiento en progreso?');
-  if (confirmacion) {
-    limpiarEstadoEntrenamiento();
-    limpiarVistaEntrenamiento();
-  }
+  confirmarAccion({
+    titulo: '⚠️ Descartar entrenamiento',
+    mensaje: '¿Estás seguro? El progreso de esta sesión se perderá y no se guardará.',
+    textoBtnConfirmar: 'Sí, descartar',
+    colorBtn: 'btn-logout',
+    onConfirmar: () => {
+      limpiarEstadoEntrenamiento();
+      limpiarVistaEntrenamiento();
+    }
+  });
 });
 
 // ============================================================
@@ -3393,33 +3586,40 @@ document.querySelector('#rutinas-view')?.addEventListener('click', async (e) => 
   const id = Number(btn.dataset.rutinaId);
   const nombre = btn.dataset.rutinaNombre;
 
-  if (!confirm(`¿Estás seguro de que deseas eliminar la rutina "${nombre}"? Esta acción no borrará tu historial de entrenamientos.`)) return;
+  confirmarAccion({
+    titulo: '🗑️ Eliminar rutina',
+    mensaje: `¿Eliminar "${nombre}"? Esta acción no borrará tu historial de entrenamientos.`,
+    textoBtnConfirmar: 'Eliminar',
+    colorBtn: 'btn-logout',
+    onConfirmar: async () => {
+      try {
+        const res = await fetch(`/api/rutinas/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + getToken() },
+        });
 
-  try {
-    const res = await fetch(`/api/rutinas/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': 'Bearer ' + getToken() },
-    });
+        if (res.status === 401) {
+          localStorage.removeItem('token');
+          mostrarLogin();
+          return;
+        }
 
-    if (res.status === 401) {
-      localStorage.removeItem('token');
-      mostrarLogin();
-      return;
+        if (!res.ok) {
+          mostrarToast('Error al eliminar la rutina', 'error');
+          return;
+        }
+
+        // Remover la tarjeta del DOM inmediatamente
+        btn.closest('.rutina-card')?.remove();
+
+        // Refrescar desde el servidor para sincronizar estado
+        await cargarRutinasUsuario();
+      } catch (err) {
+        console.error('Error al eliminar rutina:', err);
+        mostrarToast('Error de conexión', 'error');
+      }
     }
-
-    if (!res.ok) {
-      alert('Error al eliminar la rutina');
-      return;
-    }
-
-    // Remover la tarjeta del DOM inmediatamente
-    btn.closest('.rutina-card')?.remove();
-
-    // Refrescar desde el servidor para sincronizar estado
-    await cargarRutinasUsuario();
-  } catch (err) {
-    console.error('Error al eliminar rutina:', err);
-  }
+  });
 });
 
 // ============================================================
@@ -3535,6 +3735,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       mostrarApp();
       mostrarVistaRutinas();
       cargarRutinasUsuario();
+      setTimeout(iniciarTour, 800);
 
       // Verificar onboarding después de cargar rutinas
       verificarOnboarding();
@@ -3542,4 +3743,37 @@ document.addEventListener('DOMContentLoaded', async () => {
   } else {
     mostrarLogin();
   }
+
+  // ============================================================
+  // BANNER OFFLINE
+  // ============================================================
+  const bannerOffline = document.getElementById('banner-offline');
+
+  function mostrarBannerOffline() {
+    if (bannerOffline) bannerOffline.style.display = 'block';
+  }
+
+  function ocultarBannerOffline() {
+    if (bannerOffline) bannerOffline.style.display = 'none';
+  }
+
+  // Verificar estado inicial al cargar
+  if (!navigator.onLine) mostrarBannerOffline();
+
+  // Escuchar cambios de conexión
+  window.addEventListener('offline', mostrarBannerOffline);
+  window.addEventListener('online', ocultarBannerOffline);
+
+  // ============================================================
+  // TOUR — Event listeners
+  // ============================================================
+  document.getElementById('tour-btn-siguiente')?.addEventListener('click', () => {
+    if (pasoActual < PASOS_TOUR.length - 1) {
+      pasoActual++;
+      mostrarPasoTour(pasoActual);
+    } else {
+      cerrarTour();
+    }
+  });
+  document.getElementById('tour-btn-saltar')?.addEventListener('click', cerrarTour);
 });

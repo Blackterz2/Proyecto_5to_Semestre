@@ -1,0 +1,167 @@
+@startuml
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam backgroundColor #1a1a2e
+skinparam classBackgroundColor #16213e
+skinparam classBorderColor #e94560
+skinparam classFontColor #e0e0e0
+skinparam classFontSize 13
+skinparam classHeaderBackgroundColor #0f3460
+skinparam arrowColor #e94560
+skinparam arrowFontColor #e0e0e0
+
+' ============================================================
+' ENUMS
+' ============================================================
+enum CategoriaEjercicio {
+  FUERZA
+  CARDIO
+  FLEXIBILIDAD
+}
+
+enum NivelExperiencia {
+  PRINCIPIANTE
+  INTERMEDIO
+  AVANZADO
+}
+
+enum Sexo {
+  MASCULINO
+  FEMENINO
+  OTRO
+}
+
+enum TipoMusculo {
+  PRINCIPAL
+  SECUNDARIO
+}
+
+' ============================================================
+' CLASES
+' ============================================================
+class Usuario {
+  - id: BigInt
+  - nombre: String
+  - email: String
+  - password: String
+  - activo: Boolean
+  - avatarUrl: String
+  - nivelExperiencia: NivelExperiencia
+  - pesoActual: Decimal
+  - estaturaCm: Integer
+  - sexo: Sexo
+  - onboardingCompletado: Boolean
+  - createdAt: DateTime
+  - updatedAt: DateTime
+  --
+  + login(email, password): Token
+  + obtenerPerfil(): UsuarioDTO
+  + actualizarNombre(nombre): void
+  + cambiarPassword(actual, nueva): void
+  + desactivarCuenta(): void
+  + obtenerHistorial(): SesionEntrenamiento[]
+}
+
+class Rutina {
+  - id: BigInt
+  - nombre: String
+  - descripcion: Text
+  - activa: Boolean
+  - esRecomendada: Boolean
+  - createdAt: DateTime
+  - updatedAt: DateTime
+  --
+  + obtenerEjercicios(): EjercicioRutina[]
+  + agregarEjercicio(ejercicioId, orden, series, peso): void
+  + eliminarEjercicio(ejercicioRutinaId): void
+  + desactivar(): void
+}
+
+class EjercicioRutina {
+  - id: BigInt
+  - orden: Integer
+  - series: Integer
+  - repeticiones: Integer
+  - peso: Decimal
+  - tiempoDescanso: Integer
+  - createdAt: DateTime
+}
+
+class Ejercicio {
+  - id: BigInt
+  - nombre: String
+  - descripcion: Text
+  - categoria: CategoriaEjercicio
+  - imagenUrl: String
+  - createdAt: DateTime
+  - updatedAt: DateTime
+  --
+  + obtenerGruposMusculares(): GrupoMuscular[]
+}
+
+class GrupoMuscular {
+  - id: BigInt
+  - nombre: String
+}
+
+class EjercicioGrupoMuscular {
+  - id: BigInt
+  - tipo: TipoMusculo
+}
+
+class SesionEntrenamiento {
+  - id: BigInt
+  - fecha: DateTime
+  - duracionMinutos: Integer
+  - notas: Text
+  - createdAt: DateTime
+  - updatedAt: DateTime
+  --
+  + guardar(ejercicios): void
+  + calcularVolumenTotal(): Decimal
+}
+
+class SesionEjercicio {
+  - id: BigInt
+  - orden: Integer
+  - notas: Text
+  - createdAt: DateTime
+}
+
+class SesionSerie {
+  - id: BigInt
+  - numeroSerie: Integer
+  - repeticiones: Integer
+  - peso: Decimal
+  - completada: Boolean
+  - createdAt: DateTime
+}
+
+class PasswordReset {
+  - id: Integer
+  - token: String
+  - expiraEn: DateTime
+  - usado: Boolean
+  - createdAt: DateTime
+}
+
+' ============================================================
+' RELACIONES
+' ============================================================
+Usuario "1" -- "N" Rutina : posee
+Usuario "1" -- "N" SesionEntrenamiento : registra
+Usuario "1" -- "N" PasswordReset : solicita
+
+Rutina "1" -- "N" EjercicioRutina : contiene
+EjercicioRutina "N" -- "1" Ejercicio : asigna
+EjercicioRutina "N" -- "0..1" Ejercicio : referencia
+
+Ejercicio "N" -- "N" GrupoMuscular : trabaja
+(Ejercicio, GrupoMuscular) .. EjercicioGrupoMuscular
+
+Ejercicio "1" -- "N" SesionEjercicio : historial
+
+SesionEntrenamiento "1" -- "N" SesionEjercicio : contiene
+SesionEjercicio "1" -- "N" SesionSerie : desglosa
+
+@enduml

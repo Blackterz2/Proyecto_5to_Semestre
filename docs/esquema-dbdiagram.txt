@@ -1,0 +1,119 @@
+// ============================================================
+// ESQUEMA ENTIDAD-RELACIÓN — Proyecto Blackterz (fitness_app)
+// ============================================================
+// Pegar esto en https://dbdiagram.io para ver el diagrama ER
+// ============================================================
+
+Table usuarios {
+  id bigint [pk, increment]
+  nombre varchar(50)
+  email varchar(50) [unique]
+  password varchar(60)
+  activo tinyint [default: 1]
+  avatar_url varchar(255)
+  nivel_experiencia enum_principiante_intermedio_avanzado
+  peso_actual decimal(5,2)
+  estatura_cm int
+  sexo enum_masculino_femenino_otro
+  onboarding_completado tinyint [default: 0]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table rutinas {
+  id bigint [pk, increment]
+  usuario_id bigint [ref: > usuarios.id]
+  nombre varchar(50)
+  descripcion text
+  activa tinyint [default: 1]
+  es_recomendada tinyint [default: 0]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table ejercicios {
+  id bigint [pk, increment]
+  nombre varchar(50)
+  descripcion text
+  categoria enum_fuerza_cardio_flexibilidad
+  imagen_url text
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table ejercicios_rutinas {
+  id bigint [pk, increment]
+  rutina_id bigint [ref: > rutinas.id]
+  ejercicio_id bigint [ref: > ejercicios.id]
+  orden int
+  series int
+  repeticiones int
+  peso decimal(6,2)
+  tiempo_descanso int
+  created_at timestamp
+}
+
+Table grupos_musculares {
+  id bigint [pk, increment]
+  nombre varchar(50) [unique]
+}
+
+Table ejercicios_grupos_musculares {
+  id bigint [pk, increment]
+  ejercicio_id bigint [ref: > ejercicios.id]
+  grupo_muscular_id bigint [ref: > grupos_musculares.id]
+  tipo enum_principal_secundario
+}
+
+Table sesiones_entrenamiento {
+  id bigint [pk, increment]
+  usuario_id bigint [ref: > usuarios.id]
+  rutina_id bigint [ref: > rutinas.id]
+  fecha timestamp
+  duracion_minutos int
+  notas text
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table sesion_ejercicios {
+  id bigint [pk, increment]
+  sesion_id bigint [ref: > sesiones_entrenamiento.id]
+  ejercicio_id bigint [ref: > ejercicios.id]
+  orden int
+  notas text
+  created_at timestamp
+}
+
+Table sesion_series {
+  id bigint [pk, increment]
+  sesion_ejercicio_id bigint [ref: > sesion_ejercicios.id]
+  numero_serie int
+  repeticiones int
+  peso decimal(6,2)
+  completada tinyint [default: 1]
+  created_at timestamp
+}
+
+Table password_resets {
+  id int [pk, increment]
+  usuario_id bigint [ref: > usuarios.id]
+  token varchar(64) [unique]
+  expira_en datetime
+  usado tinyint [default: 0]
+  created_at timestamp
+}
+
+// ============================================================
+// RELACIONES (visibles en el diagrama automáticamente via ref:)
+// ============================================================
+// usuarios 1---N rutinas
+// usuarios 1---N sesiones_entrenamiento
+// usuarios 1---N password_resets
+// rutinas 1---N ejercicios_rutinas
+// ejercicios 1---N ejercicios_rutinas
+// ejercicios 1---N ejercicios_grupos_musculares
+// grupos_musculares 1---N ejercicios_grupos_musculares
+// ejercicios 1---N sesion_ejercicios
+// sesiones_entrenamiento 1---N sesion_ejercicios
+// sesion_ejercicios 1---N sesion_series
