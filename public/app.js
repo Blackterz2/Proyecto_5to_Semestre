@@ -1528,7 +1528,8 @@ function renderGraficoVolumen(historial) {
     datos.forEach(sesion => {
       if (!sesion.fecha || !sesion.volumen_total_kg) return;
     // T00:00:00 fuerza interpretación local — evita bug de zona horaria UTC
-      const fecha = new Date(sesion.fecha + 'T00:00:00');
+      const fechaLimpia = sesion.fecha.split('T')[0];
+      const fecha = new Date(fechaLimpia + 'T00:00:00');
       const diaSemana = fecha.getDay() || 7; // 0=domingo → 7
       const lunes = new Date(fecha);
       lunes.setDate(fecha.getDate() - diaSemana + 1);

@@ -1964,6 +1964,69 @@ Se cambió el template HTML en `public/app.js` (función `cargarRutinasUsuario`)
 | `public/app.js` | Template de `cargarRutinasUsuario` — wrapper flex + inline styles en botones |
 
 ---
+## 27. Hito 9 — Gráfico de Volumen Semanal (Chart.js)
+
+> **Objetivo:** Agregar un gráfico de barras con Chart.js que muestre el volumen semanal total (kg) encima de la tabla del historial en la vista Perfil.
+
+### Implementación
+
+- **CDN:** Chart.js 4.4.1 desde cdnjs en `<head>` de `index.html`
+- **Canvas:** envuelto en `<div style="height:160px">` (altura fija), **sin** `height` en el canvas — Chart.js lo controla vía CSS con `maintainAspectRatio: false`
+- **Container:** `#grafico-volumen-container` con `height:260px; position:relative`, dentro de la misma `<section>` que `#historial-container`, JUSTO antes de la tabla
+
+### Función `renderGraficoVolumen(historial)`
+
+Ubicada en `app.js` antes de `cargarHistorial()`. Responsabilidades:
+
+1. **Poblar filtro:** Extrae rutinas únicas del historial y llena el `<select id="grafico-filtro-rutina">`
+2. **Agrupar por semana:** Calcula el lunes de cada semana con `fecha.getDay() || 7` y suma `volumen_total_kg`
+3. **Top 8 semanas:** Ordena cronológicamente, toma las últimas 8 para evitar ejes apretados
+4. **Destruir instancia previa:** `graficoInstancia.destroy()` antes de `new Chart()` para evitar memory leaks
+5. **Filtro con cloneNode:** Cada `change` en el select clona el nodo para evitar listeners fantasma
+6. **Formato local:** Tooltips y ticks usan `toLocaleString('es-ES')` para separador de miles
+
+### Llamada
+
+Dentro de `cargarHistorial()`, justo ANTES de construir la tabla HTML:
+```js
+renderGraficoVolumen(historial);
+```
+
+### Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/index.html` | CDN Chart.js + contenedor + canvas |
+| `public/app.js` | `graficoInstancia` global + `renderGraficoVolumen()` + llamada en `cargarHistorial()` |
+
+---
+## 28. Bug Fix — Invalid Time Value en gráfico de volumen
+
+> **Problema:** Al procesar `sesion.fecha` en `renderGraficoVolumen()`, si la fecha venía como ISO timestamp completo (ej. `2026-06-15T03:00:00.000Z`), concatenar `+ 'T00:00:00'` producía `2026-06-15T03:00:00.000ZT00:00:00`, que `new Date()` interpretaba como **Invalid Time Value**, rompiendo el render del gráfico.
+
+### Causa Raíz
+
+La API devuelve fechas en formato ISO 8601 (`YYYY-MM-DDTHH:mm:ss.sssZ`). El código original hacía:
+```js
+const fecha = new Date(sesion.fecha + 'T00:00:00');
+```
+Cuando `sesion.fecha` ya contenía `T`, el resultado era una string malformada.
+
+### Fix Aplicado
+
+Se extrae solo la parte `YYYY-MM-DD` antes de concatenar:
+```js
+const fechaLimpia = sesion.fecha.split('T')[0];
+const fecha = new Date(fechaLimpia + 'T00:00:00');
+```
+
+### Archivo Modificado
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/app.js` | `renderGraficoVolumen()` — split('T')[0] antes de construir fecha |
+
+---
 
 *Documentación generada durante el desarrollo del proyecto Blackterz.*
 *Cada hito fue construido con SDD (Spec-Driven Development): primero la especificación, después el código.*
