@@ -1533,10 +1533,10 @@ async function cargarRutina(rutinaId) {
     // ============================================================
     // Fase 3 — Tour Entrenar (una vez por dispositivo)
     // ============================================================
-    if (document.querySelector('.ejercicio-card')) {
+    if (document.querySelector('.card')) {
       ejecutarTour([
         {
-          selector: '.ejercicio-card',
+          selector: '.card',
           titulo: '🏋️ Ejercicios de tu rutina',
           mensaje: 'Cada tarjeta es un ejercicio. Podés agregar series, registrar el peso y las repeticiones.'
         },
