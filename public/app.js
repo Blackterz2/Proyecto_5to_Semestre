@@ -851,6 +851,7 @@ function resetearTours() {
   localStorage.removeItem('tourRutinasVisto');
   localStorage.removeItem('tourEntrenarVisto');
   localStorage.removeItem('tourEntrenarVisto_v2');
+  localStorage.removeItem('tourEntrenarVisto_v3');
   localStorage.removeItem('tourPerfilVisto');
   console.log('✅ Tours reseteados. Recargá la página.');
 }
@@ -1626,6 +1627,11 @@ async function cargarRutina(rutinaId) {
           mensaje: 'Cada tarjeta es un ejercicio. Podés agregar series, registrar el peso y las repeticiones.'
         },
         {
+          selector: '.card-thumb',
+          titulo: '🎬 Mirá cómo se hace',
+          mensaje: 'Hacé clic en la miniatura para ver el video del ejercicio en bucle, junto con la ficha técnica completa.'
+        },
+        {
           selector: '.serie-row',
           titulo: '📋 Una serie',
           mensaje: 'Cada fila es una serie. Ingresá el peso (kg) y las repeticiones que hiciste.'
@@ -1665,7 +1671,7 @@ async function cargarRutina(rutinaId) {
           titulo: '🗑️ Descartar sesión',
           mensaje: 'Si no querés guardar esta sesión, descartala. El draft se borra y volvés al dashboard.'
         }
-      ], 'tourEntrenarVisto_v2');
+      ], 'tourEntrenarVisto_v3');
     }
 
   } catch (error) {
