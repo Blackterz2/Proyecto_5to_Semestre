@@ -845,6 +845,17 @@ function ejecutarTour(pasos, storageKey) {
 }
 
 // ============================================================
+// RESETEAR TOURS (para desarrollo)
+// ============================================================
+function resetearTours() {
+  localStorage.removeItem('tourRutinasVisto');
+  localStorage.removeItem('tourEntrenarVisto');
+  localStorage.removeItem('tourPerfilVisto');
+  console.log('✅ Tours reseteados. Recargá la página.');
+}
+window.resetearTours = resetearTours;
+
+// ============================================================
 // cargarCatalogoEjercicios()
 // ============================================================
 // Obtiene TODOS los ejercicios del catálogo desde la API
@@ -2252,8 +2263,8 @@ async function cargarRutinasUsuario() {
       html += `
         <div class="rutina-card" data-rutina-id="${rutina.id}" style="position: relative;">
           <div style="position: absolute; top: 12px; right: 12px; display: flex; gap: 12px; z-index: 2;">
-            <button class="btn-editar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Editar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s; position: static;">✏️</button>
-            <button class="btn-eliminar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Eliminar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s; position: static;">🗑️</button>
+            <button class="btn-editar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Editar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s;">✏️</button>
+            <button class="btn-eliminar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Eliminar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s;">🗑️</button>
           </div>
           <div class="rutina-card-nombre">${rutina.nombre}</div>
           <div class="rutina-card-ejercicios">${textoEj}</div>
