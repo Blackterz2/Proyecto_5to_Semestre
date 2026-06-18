@@ -350,6 +350,59 @@ function obtenerMinutosTranscurridos() {
 }
 
 // ============================================================
+// DESCANSO ENTRE SERIES (Fase 3)
+// ============================================================
+// Mapa para guardar los intervalos activos por card
+// (evita múltiples countdowns corriendo al mismo tiempo)
+const descansoIntervalos = new Map();
+
+function iniciarDescanso(card) {
+  const descansoInput = card.querySelector('.descanso-input');
+  const descansoCuentaDiv = card.querySelector('.descanso-cuenta');
+  const descansoCuentaSpan = card.querySelector('.descanso-cuenta-display');
+  const descansoBtnCancelar = card.querySelector('.descanso-cuenta button');
+
+  if (!descansoInput || !descansoCuentaDiv) return;
+
+  const segundos = parseInt(descansoInput.value) || 60;
+  if (segundos <= 0) return;
+
+  // Cancelar countdown previo de esta card si existe
+  if (descansoIntervalos.has(card)) {
+    clearInterval(descansoIntervalos.get(card));
+  }
+
+  let restante = segundos;
+  descansoCuentaSpan.textContent = `${restante}s`;
+  descansoCuentaDiv.style.display = 'flex';
+  descansoInput.style.opacity = '0.4';
+
+  const intervalo = setInterval(() => {
+    restante--;
+    descansoCuentaSpan.textContent = `${restante}s`;
+
+    if (restante <= 0) {
+      clearInterval(intervalo);
+      descansoIntervalos.delete(card);
+      descansoCuentaDiv.style.display = 'none';
+      descansoInput.style.opacity = '1';
+      // Aviso visual cuando termina
+      mostrarToast('⏰ ¡Tiempo de descanso terminado!', 'success');
+    }
+  }, 1000);
+
+  descansoIntervalos.set(card, intervalo);
+
+  // Botón cancelar
+  descansoBtnCancelar.onclick = () => {
+    clearInterval(intervalo);
+    descansoIntervalos.delete(card);
+    descansoCuentaDiv.style.display = 'none';
+    descansoInput.style.opacity = '1';
+  };
+}
+
+// ============================================================
 // FUNCIONES DE PERSISTENCIA DEL ESTADO DEL ENTRENAMIENTO
 // ============================================================
 
@@ -849,6 +902,7 @@ function ejecutarTour(pasos, storageKey) {
 function resetearTours() {
   localStorage.removeItem('tourRutinasVisto');
   localStorage.removeItem('tourEntrenarVisto');
+  localStorage.removeItem('tourEntrenarVisto_v2');
   localStorage.removeItem('tourPerfilVisto');
   console.log('✅ Tours reseteados. Recargá la página.');
 }
@@ -1498,6 +1552,74 @@ async function cargarRutina(rutinaId) {
       card.appendChild(notasTextarea);
       card.appendChild(stats);
       card.appendChild(seriesInputsDiv);
+
+      // --- BLOQUE DESCANSO ---
+      const descansoWrapper = document.createElement('div');
+      descansoWrapper.className = 'descanso-wrapper';
+      descansoWrapper.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 0 4px;
+        border-top: 1px solid rgba(255,255,255,0.07);
+        margin-top: 8px;
+      `;
+
+      // Label
+      const descansoLabel = document.createElement('span');
+      descansoLabel.style.cssText = 'font-size:13px; opacity:0.6; white-space:nowrap;';
+      descansoLabel.textContent = '⏸️ Descanso:';
+
+      // Input de segundos configurable
+      const descansoInput = document.createElement('input');
+      descansoInput.type = 'number';
+      descansoInput.className = 'descanso-input input-serie';
+      descansoInput.min = '5';
+      descansoInput.max = '300';
+      descansoInput.value = '60';
+      descansoInput.style.cssText = 'width: 56px; text-align:center;';
+      descansoInput.title = 'Segundos de descanso';
+
+      // Label "seg"
+      const descansoSeg = document.createElement('span');
+      descansoSeg.style.cssText = 'font-size:13px; opacity:0.6;';
+      descansoSeg.textContent = 'seg';
+
+      // Display del countdown (oculto hasta que se activa)
+      const descansoCuentaDiv = document.createElement('div');
+      descansoCuentaDiv.className = 'descanso-cuenta';
+      descansoCuentaDiv.style.cssText = `
+        display: none;
+        align-items: center;
+        gap: 6px;
+        margin-left: auto;
+        font-size: 13px;
+        font-weight: 600;
+        color: #6c63ff;
+      `;
+
+      const descansoCuentaSpan = document.createElement('span');
+      descansoCuentaSpan.className = 'descanso-cuenta-display';
+      descansoCuentaSpan.textContent = '0s';
+
+      const descansoBtnCancelar = document.createElement('button');
+      descansoBtnCancelar.type = 'button';
+      descansoBtnCancelar.textContent = '✕';
+      descansoBtnCancelar.style.cssText = `
+        background: transparent; border: none;
+        color: #ff6b6b; cursor: pointer;
+        font-size: 14px; padding: 0 2px;
+      `;
+
+      descansoCuentaDiv.appendChild(descansoCuentaSpan);
+      descansoCuentaDiv.appendChild(descansoBtnCancelar);
+
+      descansoWrapper.appendChild(descansoLabel);
+      descansoWrapper.appendChild(descansoInput);
+      descansoWrapper.appendChild(descansoSeg);
+      descansoWrapper.appendChild(descansoCuentaDiv);
+
+      card.appendChild(descansoWrapper);
       card.appendChild(btnSerieWrapper);
       contenedorEl.appendChild(card);
     }
@@ -1556,6 +1678,11 @@ async function cargarRutina(rutinaId) {
           mensaje: 'Tachá la serie cuando la terminés. Solo las series marcadas cuentan para tu volumen total.'
         },
         {
+          selector: '.descanso-wrapper',
+          titulo: '⏸️ Cronómetro de descanso',
+          mensaje: 'Configurá cuántos segundos descansar entre series. Se activa automáticamente al marcar una serie como completada.'
+        },
+        {
           selector: '#timer-display',
           titulo: '⏱️ Cronómetro',
           mensaje: 'El tiempo corre desde que cargás la rutina. Así sabés cuánto duró tu sesión.'
@@ -1575,7 +1702,7 @@ async function cargarRutina(rutinaId) {
           titulo: '🗑️ Descartar sesión',
           mensaje: 'Si no querés guardar esta sesión, descartala. El draft se borra y volvés al dashboard.'
         }
-      ], 'tourEntrenarVisto');
+      ], 'tourEntrenarVisto_v2');
     }
 
   } catch (error) {
@@ -2338,9 +2465,9 @@ async function cargarRutinasUsuario() {
       const textoEj = totalEj === 1 ? '1 ejercicio' : totalEj + ' ejercicios';
       html += `
         <div class="rutina-card" data-rutina-id="${rutina.id}" style="position: relative;">
-          <div style="position: absolute; top: 12px; right: 12px; display: flex; gap: 12px; z-index: 2;">
-            <button class="btn-editar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Editar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s;">✏️</button>
-            <button class="btn-eliminar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Eliminar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s;">🗑️</button>
+          <div style="position: absolute; top: 12px; right: 12px; display: flex; gap: 12px;">
+            <button class="btn-editar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Editar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s; position: static;">✏️</button>
+            <button class="btn-eliminar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Eliminar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s; position: static;">🗑️</button>
           </div>
           <div class="rutina-card-nombre">${rutina.nombre}</div>
           <div class="rutina-card-ejercicios">${textoEj}</div>
@@ -2420,18 +2547,12 @@ async function cargarRutinasUsuario() {
           mensaje: 'Cada tarjeta es un entrenamiento. Hacé clic sobre ella para comenzar una sesión.'
         },
         {
-          selector: () => {
-            const btn = document.querySelector('.btn-editar-rutina');
-            return btn ? btn.closest('div[style*="position: absolute"]') : null;
-          },
+          selector: '.btn-editar-rutina',
           titulo: '✏️ Editar Rutina',
           mensaje: 'Cambiá el nombre, descripción o los ejercicios de esta rutina cuando quieras.'
         },
         {
-          selector: () => {
-            const btn = document.querySelector('.btn-eliminar-rutina');
-            return btn ? btn.closest('div[style*="position: absolute"]') : null;
-          },
+          selector: '.btn-eliminar-rutina',
           titulo: '🗑️ Eliminar Rutina',
           mensaje: 'Borrá una rutina que ya no uses. Tu historial de sesiones se mantiene intacto.'
         },
@@ -3229,7 +3350,15 @@ document.addEventListener('input', (e) => {
 // Cada vez que el usuario marca/desmarca un checkbox de serie
 // o escribe en las notas, guardamos el estado en localStorage.
 document.addEventListener('change', (e) => {
-  if (e.target.closest('.check-serie')) guardarEstadoEntrenamiento();
+  if (e.target.closest('.check-serie')) {
+    guardarEstadoEntrenamiento();
+    // Activar descanso solo al MARCAR (checked=true), no al desmarcar
+    const checkbox = e.target.closest('.check-serie');
+    if (checkbox.checked) {
+      const card = checkbox.closest('.card');
+      if (card) iniciarDescanso(card);
+    }
+  }
 });
 document.addEventListener('input', (e) => {
   if (e.target.closest('.ejercicio-notas')) guardarEstadoEntrenamiento();
@@ -3450,6 +3579,70 @@ function crearCardEjercicioExtra(ejercicio, notasValue) {
   card.appendChild(header);
   card.appendChild(notasTextarea);
   card.appendChild(seriesInputsDiv);
+
+  // --- BLOQUE DESCANSO ---
+  const descansoWrapper = document.createElement('div');
+  descansoWrapper.className = 'descanso-wrapper';
+  descansoWrapper.style.cssText = `
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0 4px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    margin-top: 8px;
+  `;
+
+  const descansoLabel = document.createElement('span');
+  descansoLabel.style.cssText = 'font-size:13px; opacity:0.6; white-space:nowrap;';
+  descansoLabel.textContent = '⏸️ Descanso:';
+
+  const descansoInput = document.createElement('input');
+  descansoInput.type = 'number';
+  descansoInput.className = 'descanso-input input-serie';
+  descansoInput.min = '5';
+  descansoInput.max = '300';
+  descansoInput.value = '60';
+  descansoInput.style.cssText = 'width: 56px; text-align:center;';
+  descansoInput.title = 'Segundos de descanso';
+
+  const descansoSeg = document.createElement('span');
+  descansoSeg.style.cssText = 'font-size:13px; opacity:0.6;';
+  descansoSeg.textContent = 'seg';
+
+  const descansoCuentaDiv = document.createElement('div');
+  descansoCuentaDiv.className = 'descanso-cuenta';
+  descansoCuentaDiv.style.cssText = `
+    display: none;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    font-size: 13px;
+    font-weight: 600;
+    color: #6c63ff;
+  `;
+
+  const descansoCuentaSpan = document.createElement('span');
+  descansoCuentaSpan.className = 'descanso-cuenta-display';
+  descansoCuentaSpan.textContent = '0s';
+
+  const descansoBtnCancelar = document.createElement('button');
+  descansoBtnCancelar.type = 'button';
+  descansoBtnCancelar.textContent = '✕';
+  descansoBtnCancelar.style.cssText = `
+    background: transparent; border: none;
+    color: #ff6b6b; cursor: pointer;
+    font-size: 14px; padding: 0 2px;
+  `;
+
+  descansoCuentaDiv.appendChild(descansoCuentaSpan);
+  descansoCuentaDiv.appendChild(descansoBtnCancelar);
+
+  descansoWrapper.appendChild(descansoLabel);
+  descansoWrapper.appendChild(descansoInput);
+  descansoWrapper.appendChild(descansoSeg);
+  descansoWrapper.appendChild(descansoCuentaDiv);
+
+  card.appendChild(descansoWrapper);
   card.appendChild(btnSerieWrapper);
 
   return card;
@@ -3863,6 +4056,10 @@ btnDescartar?.addEventListener('click', () => {
 //   - Navega a la vista Dashboard
 //   - Refresca el historial desde el servidor
 function limpiarVistaEntrenamiento() {
+  // Limpiar todos los countdowns de descanso activos
+  descansoIntervalos.forEach(intervalo => clearInterval(intervalo));
+  descansoIntervalos.clear();
+
   // Marcar entrenamiento como inactivo
   entrenamientoActivo = false;
   rutinaActivaNombre = '';

@@ -2158,6 +2158,47 @@ Storage key: `tourPerfilVisto`.
 |---------|--------|
 | `public/app.js` | +77 líneas: tour entrenar (8 pasos) + tour perfil (4 pasos con función selector) |
 
+## 32. Fase 3 — Cronómetro de Descanso entre Series
+
+> **Objetivo:** Agregar un bloque de descanso configurable a cada ejercicio-card, que se activa automáticamente al marcar una serie como completada.
+
+### Bloque de Descanso (en cada `ejercicio-card`)
+
+Se inserta en `cargarRutina()` y `crearCardEjercicioExtra()` entre el `seriesInputsDiv` y el botón "+ Serie":
+
+- Input numérico (5–300 seg, default 60) con label "⏸️ Descanso:" + "seg"
+- Countdown oculto (`display:none`) con display violeta `#6c63ff` y botón cancelar ✕
+- Separador visual: `border-top` sutil + `margin-top`
+
+### Función `iniciarDescanso(card)`
+
+- Lee segundos del `.descanso-input` (parseInt, fallback 60)
+- Cancela countdown previo de la misma card si existe (vía Map)
+- Muestra cuenta regresiva cada 1s, `mostrarToast('success')` al terminar
+- Botón ✕ cancela el intervalo y oculta el countdown
+
+### Mapa `descansoIntervalos` (Map<card, intervalId>)
+
+- Permite countdowns independientes por card
+- Se limpia en `limpiarVistaEntrenamiento()` al finalizar/descartar sesión
+
+### Activación (listener `.check-serie`)
+
+- Solo al marcar (`checked=true`), no al desmarcar
+- Busca `.card` ancestro y llama `iniciarDescanso(card)`
+
+### Tour Entrenar
+
+- Nuevo paso `.descanso-wrapper` (⏸️ Cronómetro de descanso)
+- Storage key actualizada a `tourEntrenarVisto_v2` para que usuarios existentes vean el paso nuevo
+- `resetearTours()` limpia ambas claves (vieja y v2)
+
+### Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/app.js` | Bloque descanso en 2 funciones + función `iniciarDescanso()` + listener check-serie + cleanup + tour step |
+
 ---
 
 *Documentación generada durante el desarrollo del proyecto Blackterz.*
