@@ -109,6 +109,53 @@ const btnRecomendacionNo   = document.getElementById('btn-recomendacion-no');
 let onboardingData = null;
 
 // ============================================================
+// CSS DEL TOUR (inyectado dinámicamente)
+// ============================================================
+const tourCSS = `
+  .tour-backdrop {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.8);
+    z-index: 10000;
+    pointer-events: all;
+    transition: opacity 0.3s;
+  }
+  .tour-highlight {
+    position: relative !important;
+    z-index: 10001 !important;
+    background: #1e1e1e;
+    border-radius: 8px;
+    pointer-events: none;
+  }
+  .tour-tooltip {
+    position: fixed;
+    z-index: 10002;
+    background: #6c63ff;
+    color: #fff;
+    padding: 16px;
+    border-radius: 12px;
+    width: 280px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    font-size: 14px;
+    line-height: 1.5;
+    transition: all 0.3s ease;
+  }
+  .tour-tooltip-btn {
+    background: #fff;
+    color: #6c63ff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    float: right;
+    margin-top: 12px;
+  }
+`;
+const tourStyleEl = document.createElement('style');
+tourStyleEl.textContent = tourCSS;
+document.head.appendChild(tourStyleEl);
+
+// ============================================================
 // PAGINACIÓN DEL HISTORIAL
 // ============================================================
 let historialPaginaActual = 1;
@@ -702,105 +749,95 @@ function confirmarAccion({ titulo, mensaje, textoBtnConfirmar = 'Confirmar', col
 }
 
 // ============================================================
-// TOUR DE BIENVENIDA
+// MOTOR DE TOUR GENÉRICO
 // ============================================================
+function ejecutarTour(pasos, storageKey) {
+  if (localStorage.getItem(storageKey)) return;
 
-const TOUR_KEY = 'tour_completado_v1';
+  let pasoActualTour = 0;
+  let elementoResaltadoTour = null;
+  let estilosOriginalesTour = '';
 
-const PASOS_TOUR = [
-  {
-    titulo: '➕ Creá tu primera rutina',
-    descripcion: 'Hacé clic en "+ Nueva Rutina" para armar tu primer entrenamiento personalizado con los ejercicios que quieras.',
-    elementoId: 'btn-add-rutina',
-    posicion: 'top',
-  },
-  {
-    titulo: '🎯 Empezá a entrenar',
-    descripcion: 'Desde la pestaña Entrenar podés iniciar una sesión, marcar series y registrar tu progreso en tiempo real.',
-    elementoId: 'btn-tab-entrenar',
-    posicion: 'bottom',
-  },
-  {
-    titulo: '👤 Tu perfil y historial',
-    descripcion: 'En Perfil encontrás tu historial de sesiones, podés editar tus datos y cambiar tu contraseña.',
-    elementoId: 'btn-tab-perfil',
-    posicion: 'bottom',
-  },
-];
+  const backdrop = document.createElement('div');
+  backdrop.className = 'tour-backdrop';
+  document.body.appendChild(backdrop);
 
-let pasoActual = 0;
-let elementoResaltado = null;
+  const tooltip = document.createElement('div');
+  tooltip.className = 'tour-tooltip';
+  document.body.appendChild(tooltip);
 
-function iniciarTour() {
-  if (localStorage.getItem(TOUR_KEY)) return;
-
-  pasoActual = 0;
-  document.getElementById('tour-overlay').style.display = 'block';
-  mostrarPasoTour(pasoActual);
-}
-
-function mostrarPasoTour(index) {
-  const paso = PASOS_TOUR[index];
-  const total = PASOS_TOUR.length;
-
-  document.getElementById('tour-paso-label').textContent = `Paso ${index + 1} de ${total}`;
-  document.getElementById('tour-titulo').textContent = paso.titulo;
-  document.getElementById('tour-descripcion').textContent = paso.descripcion;
-
-  document.getElementById('tour-dots').textContent =
-    PASOS_TOUR.map((_, i) => i === index ? '●' : '○').join(' ');
-
-  const btnSig = document.getElementById('tour-btn-siguiente');
-  btnSig.textContent = index === total - 1 ? '¡Entendido! ✓' : 'Siguiente →';
-
-  // Quitar resaltado anterior
-  if (elementoResaltado) {
-    elementoResaltado.style.removeProperty('position');
-    elementoResaltado.style.removeProperty('z-index');
-    elementoResaltado.style.removeProperty('box-shadow');
-    elementoResaltado.style.removeProperty('border-radius');
+  function finalizarTour() {
+    if (elementoResaltadoTour) {
+      elementoResaltadoTour.classList.remove('tour-highlight');
+      elementoResaltadoTour.style.cssText = estilosOriginalesTour;
+    }
+    backdrop.remove();
+    tooltip.remove();
+    localStorage.setItem(storageKey, 'true');
+    elementoResaltadoTour = null;
+    estilosOriginalesTour = '';
   }
 
-  // Resaltar el elemento del paso actual
-  const el = document.getElementById(paso.elementoId);
-  if (el) {
-    elementoResaltado = el;
-    el.style.position = 'relative';
-    el.style.zIndex = '10001';
-    el.style.boxShadow = '0 0 0 4px #6c63ff, 0 0 0 8px rgba(108,99,255,0.3)';
-    el.style.borderRadius = '8px';
+  function mostrarPasoTour() {
+    if (elementoResaltadoTour) {
+      elementoResaltadoTour.classList.remove('tour-highlight');
+      elementoResaltadoTour.style.cssText = estilosOriginalesTour;
+    }
 
-    posicionarTooltip(el, paso.posicion);
+    if (pasoActualTour >= pasos.length) {
+      finalizarTour();
+      return;
+    }
+
+    const paso = pasos[pasoActualTour];
+    const targetEl = typeof paso.selector === 'function'
+      ? paso.selector()
+      : document.querySelector(paso.selector);
+
+    if (!targetEl) {
+      pasoActualTour++;
+      mostrarPasoTour();
+      return;
+    }
+
+    estilosOriginalesTour = targetEl.style.cssText;
+    targetEl.classList.add('tour-highlight');
+    elementoResaltadoTour = targetEl;
+    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    const esUltimo = pasoActualTour === pasos.length - 1;
+    tooltip.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+        <strong style="font-size:16px;">${paso.titulo}</strong>
+        <button class="tour-btn-cerrar" style="
+          background:transparent; border:none; color:#fff;
+          font-size:18px; cursor:pointer; opacity:0.6; line-height:1;
+        ">✕</button>
+      </div>
+      <p style="margin: 0 0 8px; opacity:0.8; font-size:12px;">
+        Paso ${pasoActualTour + 1} de ${pasos.length}
+      </p>
+      ${paso.mensaje}
+      <br>
+      <button class="tour-tooltip-btn">
+        ${esUltimo ? '¡Entendido! ✓' : 'Siguiente →'}
+      </button>
+    `;
+
+    tooltip.style.bottom = '32px';
+    tooltip.style.top = 'auto';
+    tooltip.style.left = '50%';
+    tooltip.style.transform = 'translateX(-50%)';
+
+    tooltip.querySelector('.tour-tooltip-btn').onclick = () => {
+      pasoActualTour++;
+      mostrarPasoTour();
+    };
+    tooltip.querySelector('.tour-btn-cerrar').onclick = finalizarTour;
+    backdrop.onclick = finalizarTour;
   }
-}
 
-function posicionarTooltip(el, posicion) {
-  const rect = el.getBoundingClientRect();
-  const tooltip = document.getElementById('tour-tooltip');
-  const tooltipH = 180;
-  const margen = 16;
-
-  if (posicion === 'top') {
-    tooltip.style.top = `${rect.top - tooltipH - margen}px`;
-  } else {
-    tooltip.style.top = `${rect.bottom + margen}px`;
-  }
-
-  let left = rect.left + rect.width / 2 - 150;
-  left = Math.max(margen, Math.min(left, window.innerWidth - 316));
-  tooltip.style.left = `${left}px`;
-}
-
-function cerrarTour() {
-  if (elementoResaltado) {
-    elementoResaltado.style.removeProperty('position');
-    elementoResaltado.style.removeProperty('z-index');
-    elementoResaltado.style.removeProperty('box-shadow');
-    elementoResaltado.style.removeProperty('border-radius');
-    elementoResaltado = null;
-  }
-  document.getElementById('tour-overlay').style.display = 'none';
-  localStorage.setItem(TOUR_KEY, '1');
+  mostrarPasoTour();
 }
 
 // ============================================================
@@ -2280,6 +2317,35 @@ async function cargarRutinasUsuario() {
       });
     }
 
+    // ============================================================
+    // TOUR DE RUTINAS (solo si hay rutinas creadas)
+    // ============================================================
+    const rutinasExisten = document.querySelector('.rutina-card:not(.rutina-card--add)');
+    if (rutinasExisten) {
+      ejecutarTour([
+        {
+          selector: '.rutina-card:not(.rutina-card--add)',
+          titulo: '🏋️ Tus Rutinas',
+          mensaje: 'Cada tarjeta es un entrenamiento. Hacé clic sobre ella para comenzar una sesión.'
+        },
+        {
+          selector: '.btn-editar-rutina',
+          titulo: '✏️ Editar Rutina',
+          mensaje: 'Cambiá el nombre, descripción o los ejercicios de esta rutina cuando quieras.'
+        },
+        {
+          selector: '.btn-eliminar-rutina',
+          titulo: '🗑️ Eliminar Rutina',
+          mensaje: 'Borrá una rutina que ya no uses. Tu historial de sesiones se mantiene intacto.'
+        },
+        {
+          selector: '#btn-add-rutina',
+          titulo: '➕ Nueva Rutina',
+          mensaje: '¿Listo para un nuevo desafío? Tocá acá para armar una rutina personalizada desde cero.'
+        }
+      ], 'tourRutinasVisto');
+    }
+
   } catch (error) {
     console.error('Error al cargar rutinas:', error.message);
   }
@@ -2846,7 +2912,6 @@ async function enviarPostOnboarding(quiereRecomendacion) {
       // Refrescar lista de rutinas
       if (typeof cargarRutinas === 'function') cargarRutinas();
       cargarRutinasUsuario();
-      setTimeout(iniciarTour, 800);
     } else {
       const errData = await res.json();
       console.error('Onboarding error:', errData.message);
@@ -3945,7 +4010,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       mostrarApp();
       mostrarVistaRutinas();
       cargarRutinasUsuario();
-      setTimeout(iniciarTour, 800);
 
       // Verificar onboarding después de cargar rutinas
       verificarOnboarding();
@@ -3974,16 +4038,4 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('offline', mostrarBannerOffline);
   window.addEventListener('online', ocultarBannerOffline);
 
-  // ============================================================
-  // TOUR — Event listeners
-  // ============================================================
-  document.getElementById('tour-btn-siguiente')?.addEventListener('click', () => {
-    if (pasoActual < PASOS_TOUR.length - 1) {
-      pasoActual++;
-      mostrarPasoTour(pasoActual);
-    } else {
-      cerrarTour();
-    }
-  });
-  document.getElementById('tour-btn-saltar')?.addEventListener('click', cerrarTour);
 });

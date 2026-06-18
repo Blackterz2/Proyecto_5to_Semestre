@@ -2070,6 +2070,55 @@ renderTablaHistorial(1);              // tabla con página 1
 | `public/app.js` | Variables globales + `renderTablaHistorial()` + reemplazo de bloque en `cargarHistorial()` |
 
 ---
+## 30. Fase 3 — Motor Base del Tour y Tour de Rutinas
+
+> **Objetivo:** Reemplazar el tour fijo anterior (3 pasos con HTML estático) por un motor genérico `ejecutarTour()` que recibe pasos y storageKey, crea backdrop + tooltip dinámicamente, y puede usarse para cualquier tour futuro.
+
+### Limpieza Previa
+
+Se eliminó completamente el tour anterior (`#tour-overlay` en index.html, constantes `TOUR_KEY`, `PASOS_TOUR`, variables `pasoActual`/`elementoResaltado`, funciones `iniciarTour`/`mostrarPasoTour`/`posicionarTooltip`/`cerrarTour`, y los 2 `setTimeout(iniciarTour, 800)`).
+
+### CSS Inyectado
+
+Se agrega al inicio de `app.js` un bloque `<style>` con las clases:
+
+| Clase | Propósito |
+|-------|-----------|
+| `.tour-backdrop` | Fondo oscuro semi-transparente, `pointer-events: all` (bloquea interacción) |
+| `.tour-highlight` | Resalta elemento con fondo oscuro, `pointer-events: none` (evita clics accidentales) |
+| `.tour-tooltip` | Tooltip fixed centrado abajo, color `#6c63ff` |
+| `.tour-tooltip-btn` | Botón blanco "Siguiente" / "Entendido" |
+
+### Función Genérica `ejecutarTour(pasos, storageKey)`
+
+Crea backdrop + tooltip en el DOM, maneja el ciclo de vida:
+
+1. **Verifica** `localStorage.getItem(storageKey)` — si existe, no hace nada
+2. **Muestra paso**: resalta el elemento (clase `.tour-highlight` + `scrollIntoView`), actualiza tooltip
+3. **Skip si no existe**: si `document.querySelector(paso.selector)` falla, avanza al siguiente paso
+4. **Tooltip centrado**: `position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%)`
+5. **Cierre**: botón ✕, clic en backdrop, o al llegar al último paso
+6. **Persiste**: `localStorage.setItem(storageKey, 'true')` al finalizar
+
+### Tour de Rutinas (ejecutado en `cargarRutinasUsuario()`)
+
+Se activa solo si existe al menos una `.rutina-card:not(.rutina-card--add)`:
+
+1. 🏋️ Tus Rutinas → `.rutina-card:not(.rutina-card--add)`
+2. ✏️ Editar Rutina → `.btn-editar-rutina`
+3. 🗑️ Eliminar Rutina → `.btn-eliminar-rutina`
+4. ➕ Nueva Rutina → `#btn-add-rutina`
+
+Storage key: `tourRutinasVisto`.
+
+### Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/index.html` | Eliminado bloque `#tour-overlay` (~50 líneas) |
+| `public/app.js` | Eliminado tour viejo + CSS inyectado + `ejecutarTour()` + tour de rutinas |
+
+---
 
 *Documentación generada durante el desarrollo del proyecto Blackterz.*
 *Cada hito fue construido con SDD (Spec-Driven Development): primero la especificación, después el código.*
