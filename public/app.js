@@ -167,7 +167,7 @@ let userData = null;
 // PANEL DE DETALLE DE EJERCICIO (Hito 15)
 // ============================================================
 const panelDetalle       = document.getElementById('panel-detalle-ejercicio');
-const panelDetalleImg    = document.getElementById('panel-detalle-img');
+let   panelDetalleImg    = document.getElementById('panel-detalle-img');
 const panelDetalleNombre = document.getElementById('panel-detalle-nombre');
 const panelDetalleMusculo = document.getElementById('panel-detalle-musculo');
 const panelDetalleDesc   = document.getElementById('panel-detalle-desc');
@@ -1084,14 +1084,28 @@ async function poblarListaEjerciciosExtra(terminoBusqueda) {
 }
 
 // ============================================================
+// esVideo(url) — Detecta si una URL apunta a un video .mp4
+// ============================================================
+function esVideo(url) {
+  if (!url) return false;
+  return /\.mp4(\?|$)/i.test(url);
+}
+
+// ============================================================
 // renderizarImagenEjercicio(ej)
 // ============================================================
-// Devuelve el HTML para la imagen de un ejercicio.
-// Prioridad: GIF animado (gif_url) > imagen estática (imagen_url)
-// > placeholder con icono (fallback visual).
+// Devuelve el HTML para representar un ejercicio: <video> si
+// gif_url apunta a .mp4, <img> si es GIF/JPG, o placeholder.
 function renderizarImagenEjercicio(ej) {
-  // Prioridad: GIF animado (ExerciseDB) > imagen estática local > placeholder
   if (ej.gif_url) {
+    if (esVideo(ej.gif_url)) {
+      return `<video
+        src="${ej.gif_url}"
+        class="img-ejercicio-thumb"
+        autoplay loop muted playsinline
+        preload="metadata"
+      ></video>`;
+    }
     return `<img src="${ej.gif_url}" alt="${ej.nombre}" class="img-ejercicio-thumb" loading="lazy" />`;
   }
   if (ej.imagen_url) {
@@ -1381,12 +1395,15 @@ async function cargarRutina(rutinaId) {
       card.className = 'card';
       card.dataset.ejercicioId = ejercicio.id;
 
-      // --- CABECERA: orden + nombre + eliminar ---
+      // --- CABECERA: miniatura (click → detalle) + nombre + eliminar ---
       const header = document.createElement('div');
       header.className = 'card-header';
-      const orden = document.createElement('span');
-      orden.className = 'card-orden';
-      orden.textContent = ejercicio.orden || '-';
+
+      // Miniatura del ejercicio (reemplaza el viejo círculo con número)
+      const thumbWrapper = document.createElement('div');
+      thumbWrapper.className = 'card-thumb';
+      thumbWrapper.innerHTML = renderizarImagenEjercicio(ejercicio);
+
       const title = document.createElement('h3');
       title.className = 'card-title';
       title.textContent = ejercicio.nombre || 'Ejercicio';
@@ -1399,7 +1416,7 @@ async function cargarRutina(rutinaId) {
       btnEliminarEj.textContent = '🗑️';
       btnEliminarEj.title = 'Eliminar este ejercicio';
 
-      header.appendChild(orden);
+      header.appendChild(thumbWrapper);
       header.appendChild(title);
       header.appendChild(btnEliminarEj);
 
@@ -4377,10 +4394,42 @@ function mostrarDetalleEjercicio(ejercicioId) {
   const ejercicio = catalogoEjercicios?.find(e => e.id === ejercicioId);
   if (!ejercicio) return;
 
-  // Imagen: prioridad GIF > imagen estática
+  // Imagen/Video: prioridad gif_url (MP4 o GIF/JPG) > imagen estática
   const imgSrc = ejercicio.gif_url || (ejercicio.imagen_url ? `/images/${ejercicio.imagen_url}` : '');
-  panelDetalleImg.src = imgSrc;
-  panelDetalleImg.alt = ejercicio.nombre || 'Ejercicio';
+
+  // Buscar el elemento actual (puede ser <img> o <video> de una
+  // apertura anterior del panel)
+  let mediaActual = document.getElementById('panel-detalle-img');
+
+  if (esVideo(imgSrc)) {
+    // Si el elemento actual NO es un <video>, reemplazarlo
+    if (mediaActual.tagName !== 'VIDEO') {
+      const video = document.createElement('video');
+      video.id = 'panel-detalle-img';
+      video.className = mediaActual.className;
+      video.autoplay = true;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      mediaActual.replaceWith(video);
+      mediaActual = video;
+      // Re-cachear la referencia global para futuras llamadas
+      panelDetalleImg = video;
+    }
+    mediaActual.src = imgSrc;
+  } else {
+    // Si el elemento actual NO es un <img>, reemplazarlo
+    if (mediaActual.tagName !== 'IMG') {
+      const img = document.createElement('img');
+      img.id = 'panel-detalle-img';
+      img.className = mediaActual.className;
+      mediaActual.replaceWith(img);
+      mediaActual = img;
+      panelDetalleImg = img;
+    }
+    mediaActual.src = imgSrc;
+    mediaActual.alt = ejercicio.nombre || 'Ejercicio';
+  }
 
   // Nombre
   panelDetalleNombre.textContent = ejercicio.nombre || '';
@@ -4402,7 +4451,7 @@ function mostrarDetalleEjercicio(ejercicioId) {
 // Delegación global: captura clics en .img-ejercicio-thumb
 // Busca el id del ejercicio en el catálogo para mostrar datos completos
 document.addEventListener('click', (e) => {
-  const img = e.target.closest('.img-ejercicio-thumb, .card-img img');
+  const img = e.target.closest('.img-ejercicio-thumb, .card-img img, .card-thumb');
   if (!img) return;
 
   const card = img.closest('.ejercicio-list-item, .card');
