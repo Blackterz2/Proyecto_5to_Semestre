@@ -1087,9 +1087,13 @@ async function poblarListaEjerciciosExtra(terminoBusqueda) {
 // renderizarImagenEjercicio(ej)
 // ============================================================
 // Devuelve el HTML para la imagen de un ejercicio.
-// Si el ejercicio tiene imagen_url, muestra un <img> real.
-// Si no, muestra el placeholder con icono (fallback visual).
+// Prioridad: GIF animado (gif_url) > imagen estática (imagen_url)
+// > placeholder con icono (fallback visual).
 function renderizarImagenEjercicio(ej) {
+  // Prioridad: GIF animado (ExerciseDB) > imagen estática local > placeholder
+  if (ej.gif_url) {
+    return `<img src="${ej.gif_url}" alt="${ej.nombre}" class="img-ejercicio-thumb" loading="lazy" />`;
+  }
   if (ej.imagen_url) {
     return `<img src="/images/${ej.imagen_url}" alt="${ej.nombre}" class="img-ejercicio-thumb" />`;
   }
@@ -1938,6 +1942,7 @@ function renderTablaHistorial(pagina) {
 // Trae los datos del perfil (GET /api/usuario/perfil), los
 // guarda en userData e inyecta peso, estatura y nivel en el
 // bloque #header-ficha (lado derecho del header).
+// Usa .dato-card para que se vea como ficha técnica profesional.
 // ============================================================
 async function renderizarPerfil() {
   const token = getToken();
@@ -1962,17 +1967,17 @@ async function renderizarPerfil() {
     const nivel = userData.nivel_experiencia || '—';
 
     ficha.innerHTML = `
-      <div class="ficha-item">
-        <span class="ficha-item__label">Peso</span>
-        <span class="ficha-item__value">${peso}</span>
+      <div class="dato-card">
+        <span class="dato-card__value">${peso}</span>
+        <span class="dato-card__label">Peso</span>
       </div>
-      <div class="ficha-item">
-        <span class="ficha-item__label">Estatura</span>
-        <span class="ficha-item__value">${estatura}</span>
+      <div class="dato-card">
+        <span class="dato-card__value">${estatura}</span>
+        <span class="dato-card__label">Estatura</span>
       </div>
-      <div class="ficha-item">
-        <span class="ficha-item__label">Nivel</span>
-        <span class="ficha-item__value">${nivel}</span>
+      <div class="dato-card">
+        <span class="dato-card__value">${nivel}</span>
+        <span class="dato-card__label">Nivel</span>
       </div>
     `;
 
@@ -2286,7 +2291,7 @@ function inicializarFormulariosPerfil() {
           <button id="btn-cerrar-modal-perfil" class="modal-cerrar">&times;</button>
         </div>
 
-        <div class="modal-body" style="display:flex; flex-direction:column; gap:0;">
+        <div class="modal-body modal-body-scroll">
 
           <!-- ================================================
                SECCIÓN 1: DATOS PERSONALES
@@ -2498,7 +2503,17 @@ function inicializarFormulariosPerfil() {
       const passNueva   = document.getElementById('modal-input-pass-nueva').value;
       const passRepetir = document.getElementById('modal-input-pass-repetir').value;
 
-      // Validación cliente
+      // ============================================================
+      // La contraseña es OPCIONAL. Si todos los campos están vacíos,
+      // saltamos la sección sin mostrar error.
+      // ============================================================
+      const todosVacios = !passActual && !passNueva && !passRepetir;
+      if (todosVacios) {
+        mostrarToast('Contraseña no modificada (campos vacíos)', 'info');
+        return;
+      }
+
+      // Si algún campo tiene contenido, validamos TODOS
       if (!passActual) {
         mostrarError('modal-error-seguridad', 'Ingresá tu contraseña actual');
         return;
@@ -4362,8 +4377,8 @@ function mostrarDetalleEjercicio(ejercicioId) {
   const ejercicio = catalogoEjercicios?.find(e => e.id === ejercicioId);
   if (!ejercicio) return;
 
-  // Imagen
-  const imgSrc = ejercicio.imagen_url ? `/images/${ejercicio.imagen_url}` : '';
+  // Imagen: prioridad GIF > imagen estática
+  const imgSrc = ejercicio.gif_url || (ejercicio.imagen_url ? `/images/${ejercicio.imagen_url}` : '');
   panelDetalleImg.src = imgSrc;
   panelDetalleImg.alt = ejercicio.nombre || 'Ejercicio';
 

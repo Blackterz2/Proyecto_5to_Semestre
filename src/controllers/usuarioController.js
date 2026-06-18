@@ -224,30 +224,75 @@ async function putPerfil(req, res) {
 //
 // FLUJO:
 //   1. Recibe { passwordActual, passwordNueva }
-//   2. Busca el hash actual en la DB
-//   3. Verifica que passwordActual coincida con bcrypt.compare()
-//   4. Valida que passwordNueva tenga mínimo 8 caracteres
-//   5. Hashea la nueva contraseña
-//   6. Actualiza en la DB
+//   2. passwordNueva es OPCIONAL — si no se envía, responde ok
+//      sin modificar nada (útil para formularios unificados)
+//   3. Si passwordNueva se envía:
+//      a. passwordActual es OBLIGATORIO
+//      b. Valida: mínimo 8 caracteres, mayúscula, minúscula,
+//         número y carácter especial
+//      c. Verifica contraseña actual contra bcrypt hash
+//      d. Hashea la nueva contraseña
+//      e. Actualiza en la DB
 async function putContrasena(req, res) {
   try {
     const usuarioId = req.usuario.usuario_id;
     const { passwordActual, passwordNueva } = req.body;
 
     // ============================================================
-    // VALIDACIONES
+    // CAMPO OPCIONAL — Si no viene passwordNueva, ok sin cambios
     // ============================================================
-    if (!passwordActual || !passwordNueva) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Los campos passwordActual y passwordNueva son obligatorios',
+    if (!passwordNueva || passwordNueva.trim().length === 0) {
+      return res.json({
+        status: 'ok',
+        message: 'Sin cambios en la contraseña',
       });
     }
 
+    // ============================================================
+    // Si passwordNueva VIENE, passwordActual es OBLIGATORIO
+    // ============================================================
+    if (!passwordActual || passwordActual.trim().length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Debés ingresar tu contraseña actual para cambiarla',
+      });
+    }
+
+    // ============================================================
+    // VALIDACIONES DE FORMATO
+    // ============================================================
     if (passwordNueva.length < 8) {
       return res.status(400).json({
         status: 'error',
         message: 'La nueva contraseña debe tener al menos 8 caracteres',
+      });
+    }
+
+    if (!/(?=.*[a-z])/.test(passwordNueva)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'La nueva contraseña debe tener al menos una letra minúscula',
+      });
+    }
+
+    if (!/(?=.*[A-Z])/.test(passwordNueva)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'La nueva contraseña debe tener al menos una letra mayúscula',
+      });
+    }
+
+    if (!/(?=.*\d)/.test(passwordNueva)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'La nueva contraseña debe tener al menos un número',
+      });
+    }
+
+    if (!/(?=.*[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;'\/`~])/.test(passwordNueva)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'La nueva contraseña debe tener al menos un carácter especial',
       });
     }
 

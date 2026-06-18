@@ -140,9 +140,38 @@ body {
   align-items: center;
   gap: 14px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-/* Ficha técnica en el header */
+/* Ficha técnica profesional en el header — .dato-card */
+.dato-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 80px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+
+.dato-card__label {
+  font-size: 0.68rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+}
+
+.dato-card__value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+/* Compatibilidad retro: ficha-item sigue funcionando */
 .ficha-item {
   display: flex;
   flex-direction: column;
@@ -567,6 +596,16 @@ body {
 
 .modal-body {
   margin-bottom: 20px;
+}
+
+/* Scroll vertical para modales con muchos campos */
+.modal-body-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  max-height: 65vh;
+  padding-right: 4px;
 }
 
 .modal-actions {

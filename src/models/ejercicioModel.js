@@ -31,11 +31,12 @@ async function obtenerTodos() {
       e.descripcion,
       e.categoria,
       e.imagen_url,
+      e.gif_url,
       GROUP_CONCAT(DISTINCT gm.nombre ORDER BY gm.nombre SEPARATOR ', ') AS musculos
     FROM ejercicios e
     LEFT JOIN ejercicios_grupos_musculares eg ON e.id = eg.ejercicio_id
     LEFT JOIN grupos_musculares gm ON eg.grupo_muscular_id = gm.id
-    GROUP BY e.id, e.nombre, e.descripcion, e.categoria, e.imagen_url
+    GROUP BY e.id, e.nombre, e.descripcion, e.categoria, e.imagen_url, e.gif_url
     ORDER BY e.nombre ASC
   `;
   const [rows] = await pool.execute(sql);
