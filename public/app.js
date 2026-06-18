@@ -125,6 +125,7 @@ const tourCSS = `
     background: #1e1e1e;
     border-radius: 8px;
     pointer-events: none;
+    box-shadow: 0 0 0 3px #6c63ff, 0 0 16px rgba(108,99,255,0.5) !important;
   }
   .tour-tooltip {
     position: fixed;
@@ -803,7 +804,10 @@ function ejecutarTour(pasos, storageKey) {
     estilosOriginalesTour = targetEl.style.cssText;
     targetEl.classList.add('tour-highlight');
     elementoResaltadoTour = targetEl;
-    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Scrollear al card contenedor si el elemento es chico (botón)
+    const scrollTarget = targetEl.closest('.rutina-card') || targetEl;
+    scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     const esUltimo = pasoActualTour === pasos.length - 1;
     tooltip.innerHTML = `
