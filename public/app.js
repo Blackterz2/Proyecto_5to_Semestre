@@ -122,9 +122,8 @@ const tourCSS = `
   .tour-highlight {
     position: relative !important;
     z-index: 10001 !important;
-    background: #1e1e1e;
-    border-radius: 8px;
     pointer-events: none;
+    background-color: #1b1e31 !important;
     box-shadow: 0 0 0 3px #6c63ff, 0 0 16px rgba(108,99,255,0.5) !important;
   }
   .tour-tooltip {
@@ -2263,8 +2262,8 @@ async function cargarRutinasUsuario() {
       html += `
         <div class="rutina-card" data-rutina-id="${rutina.id}" style="position: relative;">
           <div style="position: absolute; top: 12px; right: 12px; display: flex; gap: 12px; z-index: 2;">
-            <button class="btn-editar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Editar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s;">✏️</button>
-            <button class="btn-eliminar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Eliminar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s;">🗑️</button>
+            <button class="btn-editar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Editar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s; position: static;">✏️</button>
+            <button class="btn-eliminar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Eliminar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s; position: static;">🗑️</button>
           </div>
           <div class="rutina-card-nombre">${rutina.nombre}</div>
           <div class="rutina-card-ejercicios">${textoEj}</div>
