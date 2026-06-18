@@ -350,59 +350,6 @@ function obtenerMinutosTranscurridos() {
 }
 
 // ============================================================
-// DESCANSO ENTRE SERIES (Fase 3)
-// ============================================================
-// Mapa para guardar los intervalos activos por card
-// (evita múltiples countdowns corriendo al mismo tiempo)
-const descansoIntervalos = new Map();
-
-function iniciarDescanso(card) {
-  const descansoInput = card.querySelector('.descanso-input');
-  const descansoCuentaDiv = card.querySelector('.descanso-cuenta');
-  const descansoCuentaSpan = card.querySelector('.descanso-cuenta-display');
-  const descansoBtnCancelar = card.querySelector('.descanso-cuenta button');
-
-  if (!descansoInput || !descansoCuentaDiv) return;
-
-  const segundos = parseInt(descansoInput.value) || 60;
-  if (segundos <= 0) return;
-
-  // Cancelar countdown previo de esta card si existe
-  if (descansoIntervalos.has(card)) {
-    clearInterval(descansoIntervalos.get(card));
-  }
-
-  let restante = segundos;
-  descansoCuentaSpan.textContent = `${restante}s`;
-  descansoCuentaDiv.style.display = 'flex';
-  descansoInput.style.opacity = '0.4';
-
-  const intervalo = setInterval(() => {
-    restante--;
-    descansoCuentaSpan.textContent = `${restante}s`;
-
-    if (restante <= 0) {
-      clearInterval(intervalo);
-      descansoIntervalos.delete(card);
-      descansoCuentaDiv.style.display = 'none';
-      descansoInput.style.opacity = '1';
-      // Aviso visual cuando termina
-      mostrarToast('⏰ ¡Tiempo de descanso terminado!', 'success');
-    }
-  }, 1000);
-
-  descansoIntervalos.set(card, intervalo);
-
-  // Botón cancelar
-  descansoBtnCancelar.onclick = () => {
-    clearInterval(intervalo);
-    descansoIntervalos.delete(card);
-    descansoCuentaDiv.style.display = 'none';
-    descansoInput.style.opacity = '1';
-  };
-}
-
-// ============================================================
 // FUNCIONES DE PERSISTENCIA DEL ESTADO DEL ENTRENAMIENTO
 // ============================================================
 
@@ -1609,39 +1556,9 @@ async function cargarRutina(rutinaId) {
       descansoSeg.style.cssText = 'font-size:13px; opacity:0.6;';
       descansoSeg.textContent = 'seg';
 
-      // Display del countdown (oculto hasta que se activa)
-      const descansoCuentaDiv = document.createElement('div');
-      descansoCuentaDiv.className = 'descanso-cuenta';
-      descansoCuentaDiv.style.cssText = `
-        display: none;
-        align-items: center;
-        gap: 6px;
-        margin-left: auto;
-        font-size: 13px;
-        font-weight: 600;
-        color: #6c63ff;
-      `;
-
-      const descansoCuentaSpan = document.createElement('span');
-      descansoCuentaSpan.className = 'descanso-cuenta-display';
-      descansoCuentaSpan.textContent = '0s';
-
-      const descansoBtnCancelar = document.createElement('button');
-      descansoBtnCancelar.type = 'button';
-      descansoBtnCancelar.textContent = '✕';
-      descansoBtnCancelar.style.cssText = `
-        background: transparent; border: none;
-        color: #ff6b6b; cursor: pointer;
-        font-size: 14px; padding: 0 2px;
-      `;
-
-      descansoCuentaDiv.appendChild(descansoCuentaSpan);
-      descansoCuentaDiv.appendChild(descansoBtnCancelar);
-
       descansoWrapper.appendChild(descansoLabel);
       descansoWrapper.appendChild(descansoInput);
       descansoWrapper.appendChild(descansoSeg);
-      descansoWrapper.appendChild(descansoCuentaDiv);
 
       card.appendChild(descansoWrapper);
       card.appendChild(btnSerieWrapper);
@@ -1703,8 +1620,8 @@ async function cargarRutina(rutinaId) {
         },
         {
           selector: '.descanso-wrapper',
-          titulo: '⏸️ Cronómetro de descanso',
-          mensaje: 'Configurá cuántos segundos descansar entre series. Se activa automáticamente al marcar una serie como completada.'
+          titulo: '⏸️ Temporizador de descanso',
+          mensaje: 'Configurá los segundos acá. Al marcar una serie como completada, aparece una barra global abajo con el countdown.'
         },
         {
           selector: '#timer-display',
@@ -3376,11 +3293,17 @@ document.addEventListener('input', (e) => {
 document.addEventListener('change', (e) => {
   if (e.target.closest('.check-serie')) {
     guardarEstadoEntrenamiento();
-    // Activar descanso solo al MARCAR (checked=true), no al desmarcar
+    // Activar barra de descanso global solo al MARCAR (checked=true)
     const checkbox = e.target.closest('.check-serie');
     if (checkbox.checked) {
       const card = checkbox.closest('.card');
-      if (card) iniciarDescanso(card);
+      const inputDescanso = card?.querySelector('.descanso-input');
+      const tituloElement = card?.querySelector('.card-title');
+      if (inputDescanso && tituloElement) {
+        const segundos = parseInt(inputDescanso.value) || 60;
+        const titulo = tituloElement.textContent.trim();
+        if (segundos > 0) iniciarDescansoGlobal(segundos, titulo);
+      }
     }
   }
 });
@@ -3633,38 +3556,9 @@ function crearCardEjercicioExtra(ejercicio, notasValue) {
   descansoSeg.style.cssText = 'font-size:13px; opacity:0.6;';
   descansoSeg.textContent = 'seg';
 
-  const descansoCuentaDiv = document.createElement('div');
-  descansoCuentaDiv.className = 'descanso-cuenta';
-  descansoCuentaDiv.style.cssText = `
-    display: none;
-    align-items: center;
-    gap: 6px;
-    margin-left: auto;
-    font-size: 13px;
-    font-weight: 600;
-    color: #6c63ff;
-  `;
-
-  const descansoCuentaSpan = document.createElement('span');
-  descansoCuentaSpan.className = 'descanso-cuenta-display';
-  descansoCuentaSpan.textContent = '0s';
-
-  const descansoBtnCancelar = document.createElement('button');
-  descansoBtnCancelar.type = 'button';
-  descansoBtnCancelar.textContent = '✕';
-  descansoBtnCancelar.style.cssText = `
-    background: transparent; border: none;
-    color: #ff6b6b; cursor: pointer;
-    font-size: 14px; padding: 0 2px;
-  `;
-
-  descansoCuentaDiv.appendChild(descansoCuentaSpan);
-  descansoCuentaDiv.appendChild(descansoBtnCancelar);
-
   descansoWrapper.appendChild(descansoLabel);
   descansoWrapper.appendChild(descansoInput);
   descansoWrapper.appendChild(descansoSeg);
-  descansoWrapper.appendChild(descansoCuentaDiv);
 
   card.appendChild(descansoWrapper);
   card.appendChild(btnSerieWrapper);
@@ -4080,9 +3974,8 @@ btnDescartar?.addEventListener('click', () => {
 //   - Navega a la vista Dashboard
 //   - Refresca el historial desde el servidor
 function limpiarVistaEntrenamiento() {
-  // Limpiar todos los countdowns de descanso activos
-  descansoIntervalos.forEach(intervalo => clearInterval(intervalo));
-  descansoIntervalos.clear();
+  // Ocultar barra de descanso global si está activa
+  detenerDescansoGlobal();
 
   // Marcar entrenamiento como inactivo
   entrenamientoActivo = false;
@@ -4357,3 +4250,99 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('online', ocultarBannerOffline);
 
 });
+
+// ============================================================
+// SISTEMA DE DESCANSO GLOBAL — Barra Flotante en Bottom
+// ============================================================
+let descansoGlobalInterval = null;
+let descansoRestanteGlobal = 0;
+
+function crearBarraDescanso() {
+  if (document.getElementById('barra-descanso-global')) return;
+
+  const barra = document.createElement('div');
+  barra.id = 'barra-descanso-global';
+  barra.style.cssText = `
+    position: fixed; bottom: 0; left: 0; width: 100%;
+    background: rgba(27, 30, 49, 0.95);
+    backdrop-filter: blur(10px); border-top: 1px solid #6c63ff;
+    color: white; padding: 12px 20px; box-sizing: border-box;
+    display: none; align-items: center; justify-content: space-between;
+    z-index: 9999; box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+    border-radius: 16px 16px 0 0;
+  `;
+
+  barra.innerHTML = `
+    <div style="display:flex; flex-direction:column; max-width:40%;">
+      <span style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">⏸️ Descanso</span>
+      <span id="barra-ej-nombre" style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #6c63ff;">Ejercicio</span>
+    </div>
+    <div style="display:flex; align-items:center; gap: 12px;">
+      <button id="btn-desc-menos" style="background:rgba(255,255,255,0.1); border:none; color:white; border-radius:8px; padding:6px 10px; font-weight:bold; cursor:pointer;">-15s</button>
+      <span id="barra-tiempo-display" style="font-size: 24px; font-weight: bold; width: 65px; text-align: center; font-variant-numeric: tabular-nums;">00:00</span>
+      <button id="btn-desc-mas" style="background:rgba(255,255,255,0.1); border:none; color:white; border-radius:8px; padding:6px 10px; font-weight:bold; cursor:pointer;">+15s</button>
+    </div>
+    <button id="btn-desc-omitir" style="background:#6c63ff; border:none; color:white; border-radius:8px; padding:8px 12px; font-weight:bold; cursor:pointer;">Omitir</button>
+  `;
+
+  document.body.appendChild(barra);
+
+  document.getElementById('btn-desc-menos').onclick = () => sumarDescanso(-15);
+  document.getElementById('btn-desc-mas').onclick = () => sumarDescanso(15);
+  document.getElementById('btn-desc-omitir').onclick = detenerDescansoGlobal;
+}
+
+function reproducirAlertaDescanso() {
+  if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    osc.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    osc.start();
+    setTimeout(() => osc.stop(), 400);
+  } catch (e) { console.log('Audio API no soportada'); }
+}
+
+function actualizarDisplayDescanso() {
+  if (descansoRestanteGlobal <= 0) {
+    detenerDescansoGlobal();
+    reproducirAlertaDescanso();
+    mostrarToast('⏰ ¡A entrenar!', 'success');
+    return;
+  }
+  const mins = Math.floor(descansoRestanteGlobal / 60).toString().padStart(2, '0');
+  const secs = (descansoRestanteGlobal % 60).toString().padStart(2, '0');
+  document.getElementById('barra-tiempo-display').textContent = `${mins}:${secs}`;
+}
+
+function sumarDescanso(segs) {
+  descansoRestanteGlobal += segs;
+  if (descansoRestanteGlobal < 0) descansoRestanteGlobal = 0;
+  actualizarDisplayDescanso();
+}
+
+function detenerDescansoGlobal() {
+  if (descansoGlobalInterval) clearInterval(descansoGlobalInterval);
+  const barra = document.getElementById('barra-descanso-global');
+  if (barra) barra.style.display = 'none';
+}
+
+function iniciarDescansoGlobal(segundos, nombreEjercicio) {
+  crearBarraDescanso();
+  detenerDescansoGlobal();
+
+  descansoRestanteGlobal = segundos;
+  document.getElementById('barra-ej-nombre').textContent = nombreEjercicio;
+  document.getElementById('barra-descanso-global').style.display = 'flex';
+
+  actualizarDisplayDescanso();
+  descansoGlobalInterval = setInterval(() => {
+    descansoRestanteGlobal--;
+    actualizarDisplayDescanso();
+  }, 1000);
+}
