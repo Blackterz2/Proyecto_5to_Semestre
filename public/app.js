@@ -1530,6 +1530,54 @@ async function cargarRutina(rutinaId) {
     // Forzar guardado del draft inmediatamente al cargar la rutina
     guardarEstadoEntrenamiento();
 
+    // ============================================================
+    // Fase 3 — Tour Entrenar (una vez por dispositivo)
+    // ============================================================
+    if (document.querySelector('.ejercicio-card')) {
+      ejecutarTour([
+        {
+          selector: '.ejercicio-card',
+          titulo: '🏋️ Ejercicios de tu rutina',
+          mensaje: 'Cada tarjeta es un ejercicio. Podés agregar series, registrar el peso y las repeticiones.'
+        },
+        {
+          selector: '.serie-row',
+          titulo: '📋 Una serie',
+          mensaje: 'Cada fila es una serie. Ingresá el peso (kg) y las repeticiones que hiciste.'
+        },
+        {
+          selector: '.input-serie',
+          titulo: '⚖️ Peso y repeticiones',
+          mensaje: 'Escribí el peso usado y cuántas veces lo repetiste. Dejá en 0 si es sin peso.'
+        },
+        {
+          selector: '.check-serie',
+          titulo: '✅ Marcar serie completada',
+          mensaje: 'Tachá la serie cuando la terminés. Solo las series marcadas cuentan para tu volumen total.'
+        },
+        {
+          selector: '#timer-display',
+          titulo: '⏱️ Cronómetro',
+          mensaje: 'El tiempo corre desde que cargás la rutina. Así sabés cuánto duró tu sesión.'
+        },
+        {
+          selector: '#buscador-extra-ejercicios',
+          titulo: '🔍 Agregar ejercicio extra',
+          mensaje: '¿Querés sumar un ejercicio que no está en tu rutina? Buscalo acá y se agrega al instante.'
+        },
+        {
+          selector: '#btn-finalizar',
+          titulo: '💾 Finalizar entrenamiento',
+          mensaje: 'Cuando termines, guardá la sesión. Se registra en tu historial con volumen y duración.'
+        },
+        {
+          selector: '#btn-descartar',
+          titulo: '🗑️ Descartar sesión',
+          mensaje: 'Si no querés guardar esta sesión, descartala. El draft se borra y volvés al dashboard.'
+        }
+      ], 'tourEntrenarVisto');
+    }
+
   } catch (error) {
     console.error('Error:', error.message);
     if (contenedorEl) {
@@ -1877,6 +1925,35 @@ async function cargarHistorial() {
 
     // Remover loading indicator del perfil
     document.getElementById('perfil-loading-indicator')?.remove();
+
+    // ============================================================
+    // Fase 3 — Tour Perfil (una vez por dispositivo)
+    // ============================================================
+    ejecutarTour([
+      {
+        selector: '#avatar-label',
+        titulo: '📷 Tu foto de perfil',
+        mensaje: 'Hacé clic en la foto para subir una imagen. Se actualiza al instante.'
+      },
+      {
+        selector: '#btn-abrir-modal-perfil',
+        titulo: '⚙️ Editar perfil',
+        mensaje: 'Desde acá podés cambiar tu nombre de usuario o actualizar tu contraseña.'
+      },
+      {
+        selector: () => {
+          const el = document.getElementById('grafico-volumen-container');
+          return el && el.style.display !== 'none' ? el : null;
+        },
+        titulo: '📊 Tu progreso semanal',
+        mensaje: 'El gráfico muestra el volumen total (kg) que levantaste cada semana. Podés filtrar por rutina.'
+      },
+      {
+        selector: '#historial-container',
+        titulo: '📋 Tu historial',
+        mensaje: 'Cada fila es una sesión guardada con fecha, duración, volumen y series completadas.'
+      }
+    ], 'tourPerfilVisto');
 
   } catch {
     // Si hay error de red, usar datos del JWT como fallback

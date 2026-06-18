@@ -2118,6 +2118,46 @@ Storage key: `tourRutinasVisto`.
 | `public/index.html` | Eliminado bloque `#tour-overlay` (~50 líneas) |
 | `public/app.js` | Eliminado tour viejo + CSS inyectado + `ejecutarTour()` + tour de rutinas |
 
+## 31. Fase 3 — Tour Entrenar y Tour Perfil
+
+> **Objetivo:** Agregar dos tours nuevos usando el motor `ejecutarTour()` existente: uno para la vista de entrenamiento y otro para el perfil.
+
+### Tour Entrenar (8 pasos en `cargarRutina()`)
+
+Se activa solo si existe al menos un `.ejercicio-card` en el DOM. Al final del bloque try, después de `inyectarAnteriorEnCards()` y `guardarEstadoEntrenamiento()`:
+
+1. 🏋️ Ejercicios de tu rutina → `.ejercicio-card`
+2. 📋 Una serie → `.serie-row`
+3. ⚖️ Peso y repeticiones → `.input-serie`
+4. ✅ Marcar serie completada → `.check-serie`
+5. ⏱️ Cronómetro → `#timer-display`
+6. 🔍 Agregar ejercicio extra → `#buscador-extra-ejercicios`
+7. 💾 Finalizar entrenamiento → `#btn-finalizar`
+8. 🗑️ Descartar sesión → `#btn-descartar`
+
+Storage key: `tourEntrenarVisto`.
+
+### Tour Perfil (4 pasos en `cargarHistorial()`)
+
+Se ejecuta al final del bloque try exitoso del fetch a `/api/usuarios/me`, después de remover el loading indicator:
+
+1. 📷 Tu foto de perfil → `#avatar-label`
+2. ⚙️ Editar perfil → `#btn-abrir-modal-perfil`
+3. 📊 Tu progreso semanal → `#grafico-volumen-container` (función selector que verifica `display !== 'none'` para saltar si el historial está vacío)
+4. 📋 Tu historial → `#historial-container`
+
+Storage key: `tourPerfilVisto`.
+
+### Actualizaciones
+
+- `resetearTours()` ya limpiaba las 3 claves (`tourRutinasVisto`, `tourEntrenarVisto`, `tourPerfilVisto`) — sin cambios necesarios.
+
+### Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/app.js` | +77 líneas: tour entrenar (8 pasos) + tour perfil (4 pasos con función selector) |
+
 ---
 
 *Documentación generada durante el desarrollo del proyecto Blackterz.*
