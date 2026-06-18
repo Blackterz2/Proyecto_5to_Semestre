@@ -983,14 +983,38 @@ function inyectarAnteriorEnCards() {
 
   document.querySelectorAll('#contenedor-ejercicios .card').forEach(card => {
     const ejercicioId = Number(card.dataset.ejercicioId);
-    const seriesAnteriores = ultimaSesionData[ejercicioId];
-    if (!seriesAnteriores) return;
 
+    // Compatibilidad por si ultimaSesionData es directo o viene anidado en .ejercicios
+    const seriesAnteriores = ultimaSesionData.ejercicios
+      ? ultimaSesionData.ejercicios[ejercicioId]
+      : ultimaSesionData[ejercicioId];
+
+    if (!seriesAnteriores || seriesAnteriores.length === 0) return;
+
+    // 1. INYECTAR EL RESUMEN DE LA TARJETA (Si no existe ya)
+    if (!card.querySelector('.resumen-anterior')) {
+      // Calcular máximos
+      const maxPeso = Math.max(...seriesAnteriores.map(s => Number(s.peso) || 0));
+      const totalSeries = seriesAnteriores.length;
+
+      // Crear elemento visual
+      const resumenDiv = document.createElement('div');
+      resumenDiv.className = 'resumen-anterior';
+      resumenDiv.style.cssText = 'font-size: 13px; color: #a0a0a0; margin-top: 2px; margin-bottom: 8px; font-weight: 500;';
+      resumenDiv.innerHTML = `⏱️ Última vez: ${totalSeries} series, Máx <strong>${maxPeso}kg</strong>`;
+
+      // Insertar justo después del título
+      const title = card.querySelector('.card-title');
+      if (title) {
+        // Insertamos el resumen después del contenedor del título (el header flex)
+        title.parentNode.insertAdjacentElement('afterend', resumenDiv);
+      }
+    }
+
+    // 2. INYECTAR EL DETALLE POR FILA (Lógica original)
     const rows = card.querySelectorAll('.serie-row');
-
     rows.forEach((row, idx) => {
       if (row.querySelector('.anterior-valor')) return;
-
       const inputReps = row.querySelector('input[data-campo="repeticiones"]');
       if (!inputReps) return;
 
@@ -999,9 +1023,9 @@ function inyectarAnteriorEnCards() {
 
       const span = document.createElement('span');
       span.className = 'anterior-valor';
-      span.textContent = `${datos.peso}kg x ${datos.repeticiones}`;
-      // Insertar DESPUÉS del checkbox (extremo derecho) para que
-      // quede simétrico al agregar series nuevas.
+      span.style.cssText = 'font-size: 12px; color: #6c63ff; opacity: 0.8; margin-left: 8px; white-space: nowrap;';
+      span.textContent = `(${datos.peso}kg x ${datos.repeticiones})`;
+
       const checkSerie = row.querySelector('.check-serie');
       if (checkSerie) {
         checkSerie.parentNode.insertBefore(span, checkSerie.nextSibling);
