@@ -2339,8 +2339,8 @@ async function cargarRutinasUsuario() {
       html += `
         <div class="rutina-card" data-rutina-id="${rutina.id}" style="position: relative;">
           <div style="position: absolute; top: 12px; right: 12px; display: flex; gap: 12px; z-index: 2;">
-            <button class="btn-editar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Editar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s; position: static;">✏️</button>
-            <button class="btn-eliminar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Eliminar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s; position: static;">🗑️</button>
+            <button class="btn-editar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Editar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s;">✏️</button>
+            <button class="btn-eliminar-rutina" data-rutina-id="${rutina.id}" data-rutina-nombre="${rutina.nombre}" title="Eliminar" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.7; transition: opacity 0.2s;">🗑️</button>
           </div>
           <div class="rutina-card-nombre">${rutina.nombre}</div>
           <div class="rutina-card-ejercicios">${textoEj}</div>
@@ -2420,12 +2420,18 @@ async function cargarRutinasUsuario() {
           mensaje: 'Cada tarjeta es un entrenamiento. Hacé clic sobre ella para comenzar una sesión.'
         },
         {
-          selector: '.btn-editar-rutina',
+          selector: () => {
+            const btn = document.querySelector('.btn-editar-rutina');
+            return btn ? btn.closest('div[style*="position: absolute"]') : null;
+          },
           titulo: '✏️ Editar Rutina',
           mensaje: 'Cambiá el nombre, descripción o los ejercicios de esta rutina cuando quieras.'
         },
         {
-          selector: '.btn-eliminar-rutina',
+          selector: () => {
+            const btn = document.querySelector('.btn-eliminar-rutina');
+            return btn ? btn.closest('div[style*="position: absolute"]') : null;
+          },
           titulo: '🗑️ Eliminar Rutina',
           mensaje: 'Borrá una rutina que ya no uses. Tu historial de sesiones se mantiene intacto.'
         },
