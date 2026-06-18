@@ -161,6 +161,7 @@ document.head.appendChild(tourStyleEl);
 let historialPaginaActual = 1;
 const HISTORIAL_POR_PAGINA = 10;
 let historialDatosCompletos = [];
+let userData = null;
 
 // ============================================================
 // PANEL DE DETALLE DE EJERCICIO (Hito 15)
@@ -1752,7 +1753,12 @@ function renderGraficoVolumen(historial) {
         scales: {
           x: {
             grid: { color: 'rgba(255,255,255,0.05)' },
-            ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 11 } }
+            ticks: {
+              color: 'rgba(255,255,255,0.6)',
+              font: { size: 11 },
+              autoSkip: false,
+              maxRotation: 45,
+            }
           },
           y: {
             grid: { color: 'rgba(255,255,255,0.05)' },
@@ -1768,9 +1774,12 @@ function renderGraficoVolumen(historial) {
     });
   }
 
+  // 🔥 Mostrar el contenedor ANTES de dibujar — Chart.js necesita
+  // el canvas visible para medir dimensiones correctamente
+  container.style.display = 'block';
+
   // Dibujar con "todas" por defecto
   dibujar('todas');
-  container.style.display = 'block';
 
   // Listener del filtro — remover anterior con cloneNode para
   // evitar listeners fantasma
@@ -1919,6 +1928,110 @@ function renderTablaHistorial(pagina) {
   document.getElementById('hist-btn-next')?.addEventListener('click', () => {
     if (historialPaginaActual < totalPaginas) renderTablaHistorial(historialPaginaActual + 1);
   });
+}
+
+// ============================================================
+// renderizarPerfil()
+// ============================================================
+// renderizarPerfil()
+// ============================================================
+// Trae los datos del perfil (GET /api/usuario/perfil), los
+// guarda en userData e inyecta peso, estatura y nivel en el
+// bloque #header-ficha (lado derecho del header).
+// ============================================================
+async function renderizarPerfil() {
+  const token = getToken();
+  if (!token) return;
+
+  try {
+    const res = await fetch('/api/usuario/perfil', {
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+
+    if (!res.ok) throw new Error('Error del servidor');
+
+    const body = await res.json();
+    userData = body.data || {};
+
+    // Inyectar en #header-ficha
+    const ficha = document.getElementById('header-ficha');
+    if (!ficha) return;
+
+    const peso = userData.peso_actual ? `${parseFloat(userData.peso_actual)} kg` : '—';
+    const estatura = userData.estatura_cm ? `${userData.estatura_cm} cm` : '—';
+    const nivel = userData.nivel_experiencia || '—';
+
+    ficha.innerHTML = `
+      <div class="ficha-item">
+        <span class="ficha-item__label">Peso</span>
+        <span class="ficha-item__value">${peso}</span>
+      </div>
+      <div class="ficha-item">
+        <span class="ficha-item__label">Estatura</span>
+        <span class="ficha-item__value">${estatura}</span>
+      </div>
+      <div class="ficha-item">
+        <span class="ficha-item__label">Nivel</span>
+        <span class="ficha-item__value">${nivel}</span>
+      </div>
+    `;
+
+  } catch (error) {
+    console.error('Error al cargar datos del perfil:', error.message);
+  }
+}
+
+// ============================================================
+// cargarVitrinaPRs()
+// ============================================================
+// Trae los Récords Personales (PRs) del usuario y renderiza
+// tarjetas en #progreso-placeholder.
+//
+// Si no hay registros, muestra un mensaje que invite a entrenar.
+// Si hay, pinta un grid con nombre del ejercicio + peso máximo.
+async function cargarVitrinaPRs() {
+  const placeholder = document.getElementById('progreso-placeholder');
+  if (!placeholder) return;
+
+  const token = getToken();
+  if (!token) return;
+
+  try {
+    const res = await fetch('/api/estadisticas/prs', {
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+
+    if (!res.ok) throw new Error('Error del servidor');
+
+    const body = await res.json();
+    const prs = body.data || [];
+
+    if (prs.length === 0) {
+      placeholder.innerHTML = `
+        <span class="progreso-icon">💪</span>
+        <p>¡Aún no hay récords, a entrenar!</p>
+      `;
+      return;
+    }
+
+    placeholder.innerHTML = `
+      <h3 style="margin-bottom: 15px; color: #fff; font-size: 1.1rem;">Mis Récords Personales 🏆</h3>
+      <div class="progreso-grid">
+        ${prs.map(ejercicio => `
+          <div style="background: #1b1e31; padding: 10px; border-radius: 8px; border: 1px solid #3a3f58; text-align: center;">
+            <span style="display:block; color: #888; font-size: 11px; margin-bottom: 4px;">${ejercicio.ejercicio_nombre}</span>
+            <span style="font-size: 16px; font-weight: bold; color: #6c63ff;">${parseFloat(ejercicio.peso_maximo)} kg</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } catch (error) {
+    console.error('Error al cargar PRs:', error.message);
+    placeholder.innerHTML = `
+      <span class="progreso-icon">⚠️</span>
+      <p>No se pudieron cargar los récords personales</p>
+    `;
+  }
 }
 
 // ============================================================
@@ -2128,15 +2241,26 @@ async function cargarHistorial() {
 // ============================================================
 // inicializarFormulariosPerfil()
 // ============================================================
-// Inyecta el botón "⚙️ Editar Perfil" debajo del email y crea
-// el modal de edición de perfil (Hito 2 del Roadmap).
-// Sigue el patrón exacto de abrir/cerrar del proyecto.
+// inicializarFormulariosPerfil()
+// ============================================================
+// Inyecta el botón "⚙️ Editar Perfil" y crea un único modal
+// con dos secciones:
+//
+//   Sección 1 — Datos Personales (Nombre, Email, Peso, Estatura,
+//                Nivel) → PATCH /api/usuario/perfil
+//   Sección 2 — Seguridad (Contraseña Actual, Nueva Contraseña,
+//                Repetir Contraseña) → PUT /api/usuarios/contrasena
+//
+// Cada sección tiene su propio botón de guardar y muestra errores
+// en su propio bloque. La contraseña nueva se valida en cliente
+// con mínimo 8 caracteres, mayúscula, minúscula, número y
+// carácter especial.
+// ============================================================
 function inicializarFormulariosPerfil() {
 
   // ============================================================
   // PASO 1 — Botón "⚙️ Editar Perfil" debajo del email
   // ============================================================
-  // Solo se crea una vez en el DOM.
   if (!document.getElementById('btn-abrir-modal-perfil')) {
     const btnEditar = document.createElement('button');
     btnEditar.id = 'btn-abrir-modal-perfil';
@@ -2149,144 +2273,262 @@ function inicializarFormulariosPerfil() {
   }
 
   // ============================================================
-  // PASO 2 — Crear el modal (solo una vez en toda la sesión)
+  // PASO 2 — Crear el modal (una sola vez)
   // ============================================================
   if (!document.getElementById('modal-perfil-overlay')) {
-    const modalPerfilOverlay = document.createElement('div');
-    modalPerfilOverlay.id = 'modal-perfil-overlay';
-    modalPerfilOverlay.className = 'modal-overlay hidden';
-    modalPerfilOverlay.innerHTML = `
-      <div class="modal-content" style="max-width: 460px;">
+    const overlay = document.createElement('div');
+    overlay.id = 'modal-perfil-overlay';
+    overlay.className = 'modal-overlay hidden';
+    overlay.innerHTML = `
+      <div class="modal-content" style="max-width: 480px;">
         <div class="modal-header">
           <h3>⚙️ Editar Perfil</h3>
           <button id="btn-cerrar-modal-perfil" class="modal-cerrar">&times;</button>
         </div>
-        <div class="modal-body">
+
+        <div class="modal-body" style="display:flex; flex-direction:column; gap:0;">
+
+          <!-- ================================================
+               SECCIÓN 1: DATOS PERSONALES
+               ================================================ -->
+          <h4 class="modal-section-title">📋 Datos Personales</h4>
 
           <div class="form-group">
             <label class="form-label">Nombre</label>
             <input type="text" id="modal-input-nombre" class="form-input" maxlength="50" />
           </div>
-          <button id="modal-btn-guardar-nombre" class="btn-login" style="width:100%; margin-bottom: 24px;">Guardar nombre</button>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="modal-input-email" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Peso (kg)</label>
+            <input type="number" id="modal-input-peso" class="form-input" step="0.1" min="1" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estatura (cm)</label>
+            <input type="number" id="modal-input-estatura" class="form-input" step="1" min="1" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nivel de experiencia</label>
+            <select id="modal-input-nivel" class="form-input">
+              <option value="Principiante">Principiante</option>
+              <option value="Intermedio">Intermedio</option>
+              <option value="Avanzado">Avanzado</option>
+            </select>
+          </div>
 
-          <hr style="border-color: rgba(255,255,255,0.1); margin-bottom: 24px;" />
+          <div id="modal-error-personal" class="form-error hidden"></div>
+
+          <button class="btn btn-primary" id="btn-guardar-personal" style="width:100%; margin-bottom:24px;">
+            Guardar Perfil
+          </button>
+
+          <!-- ================================================
+               SECCIÓN 2: SEGURIDAD
+               ================================================ -->
+          <hr style="border:none; border-top:1px solid rgba(255,255,255,0.08); margin:0 0 20px 0;" />
+
+          <h4 class="modal-section-title">🔒 Seguridad</h4>
 
           <div class="form-group">
             <label class="form-label">Contraseña actual</label>
-            <input type="password" id="modal-input-pass-actual" class="form-input" />
+            <input type="password" id="modal-input-pass-actual" class="form-input" autocomplete="current-password" />
           </div>
           <div class="form-group">
-            <label class="form-label">Nueva contraseña</label>
-            <input type="password" id="modal-input-pass-nueva" class="form-input" />
+            <label class="form-label">Nueva contraseña <span style="color:#888;font-weight:400;font-size:0.72rem;">(mín. 8 caracteres, mayúscula, minúscula, número y carácter especial)</span></label>
+            <input type="password" id="modal-input-pass-nueva" class="form-input" autocomplete="new-password" />
           </div>
           <div class="form-group">
-            <label class="form-label">Confirmar nueva contraseña</label>
-            <input type="password" id="modal-input-pass-confirmar" class="form-input" />
+            <label class="form-label">Repetir contraseña</label>
+            <input type="password" id="modal-input-pass-repetir" class="form-input" autocomplete="new-password" />
           </div>
-          <button id="modal-btn-cambiar-pass" class="btn-login" style="width:100%;">Cambiar contraseña</button>
 
+          <div id="modal-error-seguridad" class="form-error hidden"></div>
+
+          <button class="btn btn-primary" id="btn-guardar-seguridad" style="width:100%;">
+            Actualizar Contraseña
+          </button>
+
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="btn-cancelar-modal-perfil">Cerrar</button>
         </div>
       </div>
     `;
 
-    document.body.appendChild(modalPerfilOverlay);
+    document.body.appendChild(overlay);
 
     // ============================================================
-    // PASO 3 — Funciones de apertura/cierre
+    // FUNCIONES COMUNES
     // ============================================================
+    function ocultarError(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    }
+    function mostrarError(id, msg) {
+      const el = document.getElementById(id);
+      if (el) { el.textContent = msg; el.classList.remove('hidden'); }
+    }
+
+    // ============================================================
+    // PRECARGA — llena los campos personales desde userData
+    // ============================================================
+    function precargarModal() {
+      const data = userData || {};
+      const get = (id) => document.getElementById(id);
+      if (get('modal-input-nombre'))   get('modal-input-nombre').value   = data.nombre || '';
+      if (get('modal-input-email'))    get('modal-input-email').value    = data.email || '';
+      if (get('modal-input-peso'))     get('modal-input-peso').value     = data.peso_actual || '';
+      if (get('modal-input-estatura')) get('modal-input-estatura').value = data.estatura_cm || '';
+      const nivelSelect = get('modal-input-nivel');
+      if (nivelSelect) nivelSelect.value = data.nivel_experiencia || 'Principiante';
+      // Limpiar campos de seguridad siempre al abrir
+      if (get('modal-input-pass-actual'))  get('modal-input-pass-actual').value  = '';
+      if (get('modal-input-pass-nueva'))   get('modal-input-pass-nueva').value   = '';
+      if (get('modal-input-pass-repetir')) get('modal-input-pass-repetir').value = '';
+      // Ocultar errores
+      ocultarError('modal-error-personal');
+      ocultarError('modal-error-seguridad');
+    }
+
     function abrirModalPerfil() {
-      const inputNombre = document.getElementById('modal-input-nombre');
-      const nombreActual = perfilNombre?.textContent || extraerNombreDelToken() || '';
-      if (inputNombre) inputNombre.value = nombreActual;
-      // Limpiar inputs de contraseña siempre al abrir
-      ['modal-input-pass-actual', 'modal-input-pass-nueva', 'modal-input-pass-confirmar'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-      });
-      modalPerfilOverlay.classList.remove('hidden');
+      precargarModal();
+      overlay.classList.remove('hidden');
     }
 
     function cerrarModalPerfil() {
-      modalPerfilOverlay.classList.add('hidden');
+      overlay.classList.add('hidden');
     }
 
     // ============================================================
-    // PASO 4 — Event listeners del modal (una sola vez)
+    // EVENT LISTENERS COMUNES (cierre)
     // ============================================================
     document.getElementById('btn-cerrar-modal-perfil')?.addEventListener('click', cerrarModalPerfil);
+    document.getElementById('btn-cancelar-modal-perfil')?.addEventListener('click', cerrarModalPerfil);
 
-    // Cerrar al hacer clic fuera del modal
-    modalPerfilOverlay.addEventListener('click', (e) => {
-      if (e.target === modalPerfilOverlay) cerrarModalPerfil();
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) cerrarModalPerfil();
     });
 
-    // Cerrar con Escape
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !modalPerfilOverlay.classList.contains('hidden')) {
+      if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
         cerrarModalPerfil();
       }
     });
 
-    // --- Guardar nombre ---
-    document.getElementById('modal-btn-guardar-nombre')?.addEventListener('click', async () => {
-      const input = document.getElementById('modal-input-nombre');
-      const nombre = input?.value.trim();
+    // ============================================================
+    // SECCIÓN 1 — Guardar Datos Personales (PATCH)
+    // ============================================================
+    document.getElementById('btn-guardar-personal')?.addEventListener('click', async () => {
+      ocultarError('modal-error-personal');
+
+      const nombre     = document.getElementById('modal-input-nombre').value.trim();
+      const email      = document.getElementById('modal-input-email').value.trim();
+      const peso       = document.getElementById('modal-input-peso').value;
+      const estatura   = document.getElementById('modal-input-estatura').value;
+      const nivel      = document.getElementById('modal-input-nivel').value;
+
+      // Validación
       if (!nombre) {
-        mostrarToast('El nombre no puede estar vacío', 'error');
+        mostrarError('modal-error-personal', 'El nombre es obligatorio');
         return;
       }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        mostrarError('modal-error-personal', 'Ingresá un email válido');
+        return;
+      }
+
+      const body = { nombre, email, nivel_experiencia: nivel };
+      if (peso)     body.peso_actual = Number(peso);
+      if (estatura) body.estatura_cm = Number(estatura);
 
       const token = getToken();
       if (!token) { mostrarLogin(); return; }
 
       try {
-        const resp = await fetch('/api/usuarios/me', {
-          method: 'PUT',
+        const res = await fetch('/api/usuario/perfil', {
+          method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + token,
           },
-          body: JSON.stringify({ nombre }),
+          body: JSON.stringify(body),
         });
 
-        if (!resp.ok) {
-          const err = await resp.json();
-          mostrarToast(err.message || 'Error al guardar nombre', 'error');
+        const result = await res.json();
+
+        if (!res.ok) {
+          mostrarError('modal-error-personal', result.message || 'Error al guardar');
           return;
         }
 
-        const result = await resp.json();
-        localStorage.setItem('token', result.token);
-        if (perfilNombre) perfilNombre.textContent = nombre;
-        cerrarModalPerfil();
-        mostrarToast('Nombre actualizado ✓', 'success');
+        if (result.token) {
+          localStorage.setItem('token', result.token);
+        }
 
-      } catch (error) {
-        console.error('Error al guardar nombre:', error.message);
-        mostrarToast('Error de conexión', 'error');
+        // Refrescar DOM
+        userData = result.data;
+        if (userData) {
+          if (document.getElementById('perfil-nombre')) {
+            document.getElementById('perfil-nombre').textContent = userData.nombre || 'Usuario';
+          }
+          if (document.getElementById('perfil-email')) {
+            document.getElementById('perfil-email').textContent = userData.email || '';
+          }
+          renderizarPerfil();
+        }
+
+        mostrarToast('Perfil actualizado ✓', 'success');
+
+      } catch (err) {
+        mostrarError('modal-error-personal', 'Error de conexión al servidor');
+        console.error(err);
       }
     });
 
-    // --- Cambiar contraseña ---
-    document.getElementById('modal-btn-cambiar-pass')?.addEventListener('click', async () => {
-      const inputActual    = document.getElementById('modal-input-pass-actual');
-      const inputNueva     = document.getElementById('modal-input-pass-nueva');
-      const inputConfirmar = document.getElementById('modal-input-pass-confirmar');
+    // ============================================================
+    // SECCIÓN 2 — Guardar Contraseña (PUT /api/usuarios/contrasena)
+    // ============================================================
+    document.getElementById('btn-guardar-seguridad')?.addEventListener('click', async () => {
+      ocultarError('modal-error-seguridad');
 
-      const passwordActual    = inputActual?.value || '';
-      const passwordNueva     = inputNueva?.value || '';
-      const passwordConfirmar = inputConfirmar?.value || '';
+      const passActual  = document.getElementById('modal-input-pass-actual').value;
+      const passNueva   = document.getElementById('modal-input-pass-nueva').value;
+      const passRepetir = document.getElementById('modal-input-pass-repetir').value;
 
-      if (!passwordActual) {
-        mostrarToast('Ingresá tu contraseña actual', 'error');
+      // Validación cliente
+      if (!passActual) {
+        mostrarError('modal-error-seguridad', 'Ingresá tu contraseña actual');
         return;
       }
-      if (passwordNueva.length < 8) {
-        mostrarToast('La nueva contraseña debe tener al menos 8 caracteres', 'error');
+      if (!passNueva) {
+        mostrarError('modal-error-seguridad', 'Ingresá la nueva contraseña');
         return;
       }
-      if (passwordNueva !== passwordConfirmar) {
-        mostrarToast('Las contraseñas no coinciden', 'error');
+      if (passNueva.length < 8) {
+        mostrarError('modal-error-seguridad', 'La nueva contraseña debe tener al menos 8 caracteres');
+        return;
+      }
+      if (!/(?=.*[a-z])/.test(passNueva)) {
+        mostrarError('modal-error-seguridad', 'La nueva contraseña debe tener al menos una minúscula');
+        return;
+      }
+      if (!/(?=.*[A-Z])/.test(passNueva)) {
+        mostrarError('modal-error-seguridad', 'La nueva contraseña debe tener al menos una mayúscula');
+        return;
+      }
+      if (!/(?=.*\d)/.test(passNueva)) {
+        mostrarError('modal-error-seguridad', 'La nueva contraseña debe tener al menos un número');
+        return;
+      }
+      if (!/(?=.*[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;'\/`~])/.test(passNueva)) {
+        mostrarError('modal-error-seguridad', 'La nueva contraseña debe tener al menos un carácter especial');
+        return;
+      }
+      if (passNueva !== passRepetir) {
+        mostrarError('modal-error-seguridad', 'Las contraseñas nuevas no coinciden');
         return;
       }
 
@@ -2294,49 +2536,51 @@ function inicializarFormulariosPerfil() {
       if (!token) { mostrarLogin(); return; }
 
       try {
-        const resp = await fetch('/api/usuarios/contrasena', {
+        const res = await fetch('/api/usuarios/contrasena', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + token,
           },
-          body: JSON.stringify({ passwordActual, passwordNueva }),
+          body: JSON.stringify({
+            passwordActual: passActual,
+            passwordNueva: passNueva,
+          }),
         });
 
-        if (!resp.ok) {
-          if (resp.status === 401) {
-            mostrarToast('Contraseña actual incorrecta', 'error');
+        if (!res.ok) {
+          const err = await res.json();
+          if (res.status === 401) {
+            mostrarError('modal-error-seguridad', 'Contraseña actual incorrecta');
           } else {
-            const err = await resp.json();
-            mostrarToast(err.message || 'Error al cambiar contraseña', 'error');
+            mostrarError('modal-error-seguridad', err.message || 'Error al cambiar contraseña');
           }
           return;
         }
 
-        cerrarModalPerfil();
+        // Limpiar campos de seguridad
+        document.getElementById('modal-input-pass-actual').value  = '';
+        document.getElementById('modal-input-pass-nueva').value   = '';
+        document.getElementById('modal-input-pass-repetir').value = '';
+
         mostrarToast('Contraseña actualizada ✓', 'success');
 
-      } catch (error) {
-        console.error('Error al cambiar contraseña:', error.message);
-        mostrarToast('Error de conexión', 'error');
+      } catch (err) {
+        mostrarError('modal-error-seguridad', 'Error de conexión al servidor');
+        console.error(err);
       }
     });
 
     // ============================================================
-    // PASO 5 — Conectar botón de apertura (fuera del guard: se
-    // asegura de tener un listener limpio cada render)
+    // PASO FINAL — Conectar botón de apertura
     // ============================================================
     function conectarBotonAbrirModal() {
       const btn = document.getElementById('btn-abrir-modal-perfil');
       if (!btn) return;
-      // Clonar y reemplazar para remover listeners viejos
       const btnNuevo = btn.cloneNode(true);
       btn.parentNode.replaceChild(btnNuevo, btn);
-      btnNuevo.addEventListener('click', () => {
-        abrirModalPerfil();
-      });
+      btnNuevo.addEventListener('click', abrirModalPerfil);
     }
-
     conectarBotonAbrirModal();
   }
 }
@@ -3626,6 +3870,8 @@ btnTabRutinas?.addEventListener('click', () => {
 btnTabPerfil?.addEventListener('click', () => {
   if (!perfilView?.classList.contains('hidden')) return;
   cargarHistorial();
+  renderizarPerfil();
+  cargarVitrinaPRs();
 });
 
 btnTabEntrenar?.addEventListener('click', () => {

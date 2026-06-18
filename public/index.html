@@ -202,14 +202,19 @@
         ============================================================ -->
         <section class="perfil-section">
           <div class="perfil-header">
-            <label class="perfil-avatar" id="avatar-label" title="Hacé clic para cambiar tu foto">
-              <img id="perfil-avatar-img" class="perfil-avatar-img" src="" alt="Avatar" />
-              <span class="perfil-avatar-overlay">📷</span>
-              <input type="file" id="avatar-input" accept="image/*" />
-            </label>
-            <div class="perfil-info">
-              <h2 id="perfil-nombre" class="perfil-nombre">cargando...</h2>
-              <p id="perfil-email" class="perfil-email">cargando...</p>
+            <div class="perfil-header-left">
+              <label class="perfil-avatar" id="avatar-label" title="Hacé clic para cambiar tu foto">
+                <img id="perfil-avatar-img" class="perfil-avatar-img" src="" alt="Avatar" />
+                <span class="perfil-avatar-overlay">📷</span>
+                <input type="file" id="avatar-input" accept="image/*" />
+              </label>
+              <div class="perfil-info">
+                <h2 id="perfil-nombre" class="perfil-nombre">cargando...</h2>
+                <p id="perfil-email" class="perfil-email">cargando...</p>
+              </div>
+            </div>
+            <div class="perfil-header-right" id="header-ficha">
+              <!-- renderizarPerfil() inyecta peso, estatura, nivel acá -->
             </div>
           </div>
         </section>

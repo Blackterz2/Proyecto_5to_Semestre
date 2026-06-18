@@ -119,11 +119,121 @@ body {
 .perfil-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 18px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 24px 28px;
+}
+
+.perfil-header-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.perfil-header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+/* Ficha técnica en el header */
+.ficha-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 70px;
+}
+
+.ficha-item__label {
+  font-size: 0.72rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ficha-item__value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* ============================================================
+   MODAL DE EDICIÓN DE PERFIL
+   ============================================================ */
+/* Reutilizamos .modal-overlay/.modal-content/.form-group/etc.
+   que ya existen para los otros modales. Solamente agregamos
+   los estilos específicos que no están cubiertos. */
+
+.form-row {
+  display: flex;
+  gap: 14px;
+}
+
+.form-error {
+  background: rgba(233, 69, 96, 0.15);
+  border: 1px solid #e94560;
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #e94560;
+  font-size: 0.85rem;
+  margin: 4px 0;
+}
+
+.form-error.hidden {
+  display: none;
+}
+
+/* Título de sección dentro del modal de edición */
+.modal-section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ccc;
+  margin: 0 0 14px 0;
+}
+
+/* Botones dentro del modal */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-secondary {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid #3a3f58;
+  color: #ccc;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.15s ease;
+}
+.btn-secondary:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+.btn-primary {
+  background: #6c63ff;
+  border: none;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: background 0.15s ease;
+}
+.btn-primary:hover {
+  background: #5a52e0;
 }
 
 .perfil-avatar {
@@ -211,6 +321,24 @@ body {
 .progreso-icon {
   font-size: 2.2rem;
   opacity: 0.6;
+}
+
+/* Grid de récords personales (dentro del placeholder) */
+.progreso-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin: 0 0 6px 0;
+}
+
+/* Sombreado sutil para que las tarjetas no se vean planas */
+.progreso-grid > div {
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.progreso-grid > div:hover {
+  transform: translateY(-1px);
+  border-color: #6c63ff !important;
 }
 
 /* Título de sección en perfil */

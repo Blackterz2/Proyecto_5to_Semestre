@@ -14,7 +14,7 @@ const fs = require('fs');
 const multer = require('multer');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { desactivarUsuario, obtenerUsuarioPorId, actualizarAvatar, completarOnboarding, actualizarPerfil, obtenerPasswordUsuario, cambiarContrasena } = require('../models/usuarioModel');
+const { desactivarUsuario, obtenerUsuarioPorId, actualizarAvatar, completarOnboarding, actualizarPerfil, obtenerPasswordUsuario, cambiarContrasena, obtenerDatosPerfil, actualizarDatosPerfil, emailExiste, actualizarDatosCompletos } = require('../models/usuarioModel');
 const pool = require('../config/db');
 
 // ============================================================
@@ -525,4 +525,207 @@ async function postOnboarding(req, res) {
   }
 }
 
-module.exports = { eliminarCuenta, obtenerPerfil, putPerfil, putContrasena, subirAvatar, upload, postOnboarding };
+// ============================================================
+// getPerfilData(req, res) - GET /api/usuarios/perfil
+// ============================================================
+// Retorna solo los campos para la vitrina "Mis Datos":
+// nombre, email, peso_actual, estatura_cm, nivel_experiencia
+async function getPerfilData(req, res) {
+  try {
+    const usuarioId = req.usuario.usuario_id;
+    const datos = await obtenerDatosPerfil(usuarioId);
+
+    if (!datos) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Usuario no encontrado',
+      });
+    }
+
+    res.json({ status: 'ok', data: datos });
+
+  } catch (error) {
+    console.error('Error al obtener datos del perfil:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error interno del servidor',
+    });
+  }
+}
+
+// ============================================================
+// patchPerfilData(req, res) - PATCH /api/usuarios/perfil
+// ============================================================
+// Actualiza TODOS los campos editables del perfil en un solo
+// UPDATE: nombre, email, peso_actual, estatura_cm, nivel_experiencia.
+//
+// Validaciones:
+//   - email: formato válido + único (excluyendo el id actual)
+//   - peso_actual: número positivo
+//   - estatura_cm: número positivo
+//   - nivel_experiencia: uno de los valores permitidos
+//
+// Si nombre o email cambian → genera un NUEVO JWT para que el
+// frontend no quede desincronizado (extrae nombre del token).
+async function patchPerfilData(req, res) {
+  try {
+    const usuarioId = req.usuario.usuario_id;
+    const { nombre, email, peso_actual, estatura_cm, nivel_experiencia } = req.body;
+
+    // ============================================================
+    // VALIDACIONES
+    // ============================================================
+
+    // Validar nombre si viene
+    if (nombre !== undefined) {
+      if (typeof nombre !== 'string' || nombre.trim().length === 0) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'El nombre no puede estar vacío',
+        });
+      }
+      if (nombre.trim().length > 50) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'El nombre no puede superar los 50 caracteres',
+        });
+      }
+    }
+
+    // Validar email si viene: formato + unicidad
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (email !== undefined) {
+      if (!EMAIL_REGEX.test(email)) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'El formato del email no es válido',
+        });
+      }
+      const yaExiste = await emailExiste(email, usuarioId);
+      if (yaExiste) {
+        return res.status(409).json({
+          status: 'error',
+          message: 'El email ya está registrado por otro usuario',
+        });
+      }
+    }
+
+    // Validar nivel_experiencia si viene
+    const nivelesValidos = ['Principiante', 'Intermedio', 'Avanzado'];
+    if (nivel_experiencia !== undefined && !nivelesValidos.includes(nivel_experiencia)) {
+      return res.status(400).json({
+        status: 'error',
+        message: `nivel_experiencia debe ser uno de: ${nivelesValidos.join(', ')}`,
+      });
+    }
+
+    // Validar peso_actual si viene
+    if (peso_actual !== undefined && peso_actual !== null && peso_actual !== '') {
+      const pesoNum = Number(peso_actual);
+      if (isNaN(pesoNum) || pesoNum <= 0) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'peso_actual debe ser un número positivo',
+        });
+      }
+    }
+
+    // Validar estatura_cm si viene
+    if (estatura_cm !== undefined && estatura_cm !== null && estatura_cm !== '') {
+      const estaturaNum = Number(estatura_cm);
+      if (isNaN(estaturaNum) || estaturaNum <= 0) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'estatura_cm debe ser un número positivo',
+        });
+      }
+    }
+
+    // ============================================================
+    // DETECTAR CAMBIOS PARA JWT
+    // ============================================================
+    // Necesitamos los valores actuales para saber si nombre o
+    // email cambiaron. Si cambian → regenerar token.
+    const datosActuales = await obtenerDatosPerfil(usuarioId);
+    if (!datosActuales) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Usuario no encontrado',
+      });
+    }
+
+    const nombreFinal = nombre !== undefined ? nombre.trim() : datosActuales.nombre;
+    const emailFinal   = email   !== undefined ? email.trim()    : datosActuales.email;
+    const cambioNombre = nombre !== undefined && nombre.trim() !== datosActuales.nombre;
+    const cambioEmail  = email   !== undefined && email.trim()  !== datosActuales.email;
+    const cargoJWT     = cambioNombre || cambioEmail;
+
+    // ============================================================
+    // ARMAR DATOS PARA EL UPDATE ÚNICO
+    // ============================================================
+    const datos = {
+      nombre:            nombreFinal,
+      email:             emailFinal,
+      peso_actual:       peso_actual !== undefined && peso_actual !== null && peso_actual !== ''
+                          ? Number(peso_actual) : datosActuales.peso_actual,
+      estatura_cm:       estatura_cm !== undefined && estatura_cm !== null && estatura_cm !== ''
+                          ? Number(estatura_cm) : datosActuales.estatura_cm,
+      nivel_experiencia: nivel_experiencia || datosActuales.nivel_experiencia || 'Principiante',
+    };
+
+    const actualizado = await actualizarDatosCompletos(usuarioId, datos);
+
+    if (!actualizado) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'No se pudo actualizar el perfil',
+      });
+    }
+
+    // ============================================================
+    // GENERAR NUEVO JWT SI HUBO CAMBIOS EN NOMBRE / EMAIL
+    // ============================================================
+    let nuevoToken = null;
+    if (cargoJWT) {
+      const payload = {
+        usuario_id: usuarioId,
+        nombre:     nombreFinal,
+        email:      emailFinal,
+      };
+
+      const secret = process.env.JWT_SECRET;
+      if (!secret || secret === 'mi_clave_secreta_cambiame_en_produccion') {
+        console.error('⚠️ JWT_SECRET no configurado en .env');
+        return res.status(500).json({
+          status: 'error',
+          message: 'Error de configuración del servidor',
+        });
+      }
+
+      nuevoToken = jwt.sign(payload, secret, { expiresIn: '7d' });
+    }
+
+    // ============================================================
+    // RESPONDER
+    // ============================================================
+    const response = {
+      status: 'ok',
+      data: datos,
+    };
+
+    if (nuevoToken) {
+      response.token = nuevoToken;
+    }
+
+    res.json(response);
+
+  } catch (error) {
+    console.error('Error al actualizar perfil:', error.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error interno del servidor',
+    });
+  }
+}
+
+module.exports = { eliminarCuenta, obtenerPerfil, putPerfil, putContrasena, subirAvatar, upload, postOnboarding, getPerfilData, patchPerfilData };

@@ -105,4 +105,75 @@ async function completarOnboarding(usuarioId, datos) {
   return resultado.affectedRows > 0;
 }
 
-module.exports = { desactivarUsuario, obtenerUsuarioPorId, actualizarAvatar, completarOnboarding, actualizarPerfil, obtenerPasswordUsuario, cambiarContrasena };
+// ============================================================
+// obtenerDatosPerfil(usuarioId)
+// ============================================================
+// Devuelve SOLO los campos que se muestran en "Mis Datos"
+// del perfil: nombre, email, peso_actual, estatura_cm,
+// nivel_experiencia.
+async function obtenerDatosPerfil(usuarioId) {
+  const [rows] = await pool.execute(
+    `SELECT nombre, email, peso_actual, estatura_cm, nivel_experiencia
+     FROM usuarios WHERE id = ?`,
+    [usuarioId]
+  );
+
+  return rows.length > 0 ? rows[0] : null;
+}
+
+// ============================================================
+// actualizarDatosPerfil(usuarioId, datos)
+// ============================================================
+// Actualiza peso_actual, estatura_cm y nivel_experiencia.
+// Recibe un objeto con los campos nombre, email, peso_actual,
+// estatura_cm, nivel_experiencia — aunque solo actualiza los
+// que se editan desde el perfil.
+async function actualizarDatosPerfil(usuarioId, datos) {
+  const [resultado] = await pool.execute(
+    `UPDATE usuarios
+     SET peso_actual = ?, estatura_cm = ?, nivel_experiencia = ?
+     WHERE id = ?`,
+    [datos.peso_actual ?? null, datos.estatura_cm ?? null, datos.nivel_experiencia || 'Principiante', usuarioId]
+  );
+
+  return resultado.affectedRows > 0;
+}
+
+// ============================================================
+// emailExiste(email, excluirId)
+// ============================================================
+// Verifica si un email ya está registrado por OTRO usuario
+// (excluye el id del usuario actual para permitir mantener
+// el mismo email sin falsos positivos).
+async function emailExiste(email, excluirId) {
+  const [rows] = await pool.execute(
+    `SELECT COUNT(*) AS total FROM usuarios WHERE email = ? AND id != ?`,
+    [email, excluirId]
+  );
+  return rows[0].total > 0;
+}
+
+// ============================================================
+// actualizarDatosCompletos(usuarioId, datos)
+// ============================================================
+// UPDATE único para nombre, email, peso_actual, estatura_cm
+// y nivel_experiencia. Se llama desde el PATCH /perfil.
+async function actualizarDatosCompletos(usuarioId, datos) {
+  const [resultado] = await pool.execute(
+    `UPDATE usuarios
+     SET nombre = ?, email = ?, peso_actual = ?, estatura_cm = ?, nivel_experiencia = ?
+     WHERE id = ?`,
+    [
+      datos.nombre,
+      datos.email,
+      datos.peso_actual ?? null,
+      datos.estatura_cm ?? null,
+      datos.nivel_experiencia || 'Principiante',
+      usuarioId,
+    ]
+  );
+
+  return resultado.affectedRows > 0;
+}
+
+module.exports = { desactivarUsuario, obtenerUsuarioPorId, actualizarAvatar, completarOnboarding, actualizarPerfil, obtenerPasswordUsuario, cambiarContrasena, obtenerDatosPerfil, actualizarDatosPerfil, emailExiste, actualizarDatosCompletos };

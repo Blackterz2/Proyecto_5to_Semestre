@@ -10,7 +10,7 @@
 
 const { Router } = require('express');
 const { verificarToken } = require('../middlewares/authMiddleware');
-const { eliminarCuenta, obtenerPerfil, putPerfil, putContrasena, subirAvatar, upload, postOnboarding } = require('../controllers/usuarioController');
+const { eliminarCuenta, obtenerPerfil, putPerfil, putContrasena, subirAvatar, upload, postOnboarding, getPerfilData, patchPerfilData } = require('../controllers/usuarioController');
 
 const router = Router();
 
@@ -35,5 +35,11 @@ router.put('/contrasena', verificarToken, putContrasena);
 
 // POST /api/usuarios/onboarding - Completar onboarding del usuario
 router.post('/onboarding', verificarToken, postOnboarding);
+
+// GET /api/usuarios/perfil - Datos para la vitrina "Mis Datos"
+router.get('/perfil', verificarToken, getPerfilData);
+
+// PATCH /api/usuarios/perfil - Actualizar datos corporales
+router.patch('/perfil', verificarToken, patchPerfilData);
 
 module.exports = router;
