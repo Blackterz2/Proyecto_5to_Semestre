@@ -1844,8 +1844,22 @@ body {
 
   /* Perfil responsive */
   .perfil-header {
+    flex-direction: column;
+    align-items: center;
     padding: 18px 16px;
-    gap: 14px;
+    gap: 18px;
+  }
+
+  .perfil-header-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .perfil-header-right {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
   .perfil-avatar {
