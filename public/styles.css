@@ -1801,6 +1801,18 @@ body {
 /* ============================================================
    RESPONSIVE
    ============================================================ */
+.header-logo {
+  height: 64px;
+  width: auto;
+  display: block;
+}
+
+@media (max-width: 480px) {
+  .header-logo {
+    height: 48px;
+  }
+}
+
 @media (max-width: 600px) {
   .app-title { font-size: 1.4rem; }
   .login-card { padding: 28px 20px; }
