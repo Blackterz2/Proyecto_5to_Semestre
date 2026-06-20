@@ -99,9 +99,16 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 // ============================================================
 // Limita a 10 intentos cada 15 minutos por IP. Previene
 // ataques de fuerza bruta contra contraseñas.
+// En producción (NODE_ENV=production): máximo 10 intentos —
+// protege contra fuerza bruta real.
+// En desarrollo (NODE_ENV no definido o distinto a 'production'):
+// máximo 100 — evita que el límite moleste mientras se prueba
+// la app localmente.
+const MAX_INTENTOS_LOGIN = process.env.NODE_ENV === 'production' ? 10 : 100;
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 10,                   // máximo 10 intentos por IP
+  max: MAX_INTENTOS_LOGIN,
   message: {
     ok: false,
     mensaje: 'Demasiados intentos. Esperá 15 minutos e intentá de nuevo.',
