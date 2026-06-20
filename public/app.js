@@ -3559,31 +3559,144 @@ avatarInput?.addEventListener('change', async () => {
 });
 
 // ============================================================
-// ELIMINAR CUENTA (Soft Delete)
+// ELIMINAR CUENTA (Soft Delete) — Modal de confirmación
 // ============================================================
-btnEliminarCuenta?.addEventListener('click', async () => {
+// En lugar de prompt() del navegador, usamos un modal estilizado
+// con input de confirmación y botón deshabilitado hasta que se
+// escriba exactamente "ELIMINAR".
+btnEliminarCuenta?.addEventListener('click', () => {
   // ============================================================
-  // CONFIRMACIÓN ESTRICTA
+  // CREAR MODAL UNA SOLA VEZ (patrón lazy singleton)
   // ============================================================
-  // Usamos prompt() para que el usuario tenga que escribir
-  // "ELIMINAR" explícitamente. Esto evita clics accidentales
-  // y es más seguro que un confirm() simple.
-  const confirmacion = prompt(
-    '⚠️ ¿Estás seguro?\n\n' +
-    'Esta acción desactivará tu cuenta permanentemente.\n' +
-    'Tus rutinas e historial se conservarán, pero no podrás iniciar sesión.\n\n' +
-    'Escribí "ELIMINAR" (en mayúsculas) para confirmar.'
-  );
+  let overlay = document.getElementById('modal-eliminar-cuenta-overlay');
 
-  // Si el usuario cancela el prompt o no escribe exactamente
-  // "ELIMINAR", no hacemos nada.
-  if (confirmacion !== 'ELIMINAR') return;
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'modal-eliminar-cuenta-overlay';
+    overlay.className = 'modal-overlay hidden';
+    overlay.innerHTML = `
+      <div class="modal-content" style="max-width: 440px;">
+        <div class="modal-header">
+          <h3 style="color:#e94560;">⚠️ Eliminar cuenta</h3>
+          <button class="modal-cerrar btn-cerrar-eliminar-cuenta">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p style="margin-bottom:12px;">
+            Esta acción <strong>desactivará tu cuenta permanentemente</strong>.
+            Tus rutinas e historial se conservarán, pero no podrás
+            iniciar sesión nuevamente.
+          </p>
+          <p style="margin-bottom:16px; opacity:0.7; font-size:13px;">
+            Escribí <strong>"ELIMINAR"</strong> en mayúsculas para confirmar.
+          </p>
+          <input
+            id="input-confirmar-eliminar"
+            type="text"
+            placeholder="Escribí ELIMINAR"
+            autocomplete="off"
+            style="
+              width:100%; padding:10px 12px; border-radius:8px;
+              border:1px solid rgba(255,255,255,0.15);
+              background:rgba(255,255,255,0.06); color:#fff;
+              font-size:14px; outline:none; box-sizing:border-box;
+              margin-bottom:16px;
+            "
+          />
+          <div style="display:flex; gap:10px; justify-content:flex-end;">
+            <button class="btn-cerrar-eliminar-cuenta" style="
+              padding:10px 20px; border-radius:8px; border:none;
+              background:rgba(255,255,255,0.1); color:#fff;
+              cursor:pointer; font-size:14px;
+            ">Cancelar</button>
+            <button id="btn-confirmar-eliminar" disabled style="
+              padding:10px 20px; border-radius:8px; border:none;
+              background:#e94560; color:#fff; cursor:pointer;
+              font-size:14px; opacity:0.4;
+            ">Eliminar cuenta</button>
+          </div>
+          <div id="eliminar-status" style="margin-top:12px; font-size:13px;"></div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Cerrar con overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) cerrarModalEliminar();
+    });
+
+    // Cerrar con botones .btn-cerrar-eliminar-cuenta
+    overlay.querySelectorAll('.btn-cerrar-eliminar-cuenta').forEach(btn => {
+      btn.addEventListener('click', cerrarModalEliminar);
+    });
+
+    // Escuchar input para habilitar/deshabilitar botón
+    const input = document.getElementById('input-confirmar-eliminar');
+    const btnConfirmar = document.getElementById('btn-confirmar-eliminar');
+    input.addEventListener('input', () => {
+      const valido = input.value === 'ELIMINAR';
+      btnConfirmar.disabled = !valido;
+      btnConfirmar.style.opacity = valido ? '1' : '0.4';
+    });
+
+    // Enter en el input = hacer clic en confirmar si está habilitado
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !btnConfirmar.disabled) {
+        btnConfirmar.click();
+      }
+    });
+
+    // Escape cierra el modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
+        cerrarModalEliminar();
+      }
+    });
+
+    // Acción principal: confirmar eliminación
+    btnConfirmar.addEventListener('click', ejecutarEliminarCuenta);
+  }
+
+  // Limpiar estado previo y mostrar
+  document.getElementById('input-confirmar-eliminar').value = '';
+  document.getElementById('btn-confirmar-eliminar').disabled = true;
+  document.getElementById('btn-confirmar-eliminar').style.opacity = '0.4';
+  document.getElementById('eliminar-status').textContent = '';
+  overlay.classList.remove('hidden');
+  document.getElementById('input-confirmar-eliminar').focus();
+});
+
+// ============================================================
+// cerrarModalEliminar() — Cierra el modal sin hacer nada
+// ============================================================
+function cerrarModalEliminar() {
+  const overlay = document.getElementById('modal-eliminar-cuenta-overlay');
+  if (overlay) overlay.classList.add('hidden');
+}
+
+// ============================================================
+// ejecutarEliminarCuenta() — DELETE /api/usuarios/me
+// ============================================================
+async function ejecutarEliminarCuenta() {
+  const statusEl = document.getElementById('eliminar-status');
+  const btnConfirmar = document.getElementById('btn-confirmar-eliminar');
+  const input = document.getElementById('input-confirmar-eliminar');
+
+  // Doble verificación por si acaso
+  if (input.value !== 'ELIMINAR') return;
 
   const token = getToken();
   if (!token) {
     mostrarLogin();
+    cerrarModalEliminar();
     return;
   }
+
+  // Estado "cargando"
+  btnConfirmar.disabled = true;
+  btnConfirmar.textContent = 'Eliminando...';
+  statusEl.textContent = '⏳ Desactivando cuenta...';
+  statusEl.style.color = 'rgba(255,255,255,0.6)';
 
   try {
     const respuesta = await fetch('/api/usuarios/me', {
@@ -3596,20 +3709,25 @@ btnEliminarCuenta?.addEventListener('click', async () => {
 
     if (!respuesta.ok) {
       const datos = await respuesta.json();
-      alert('❌ ' + (datos.message || 'Error al eliminar la cuenta'));
+      statusEl.textContent = '❌ ' + (datos.message || 'Error al eliminar la cuenta');
+      statusEl.style.color = '#e94560';
+      btnConfirmar.textContent = 'Eliminar cuenta';
       return;
     }
 
-    // Cuenta desactivada → limpiar sesión y volver al login
+    // Éxito — cerrar modal, limpiar token, redirigir
+    cerrarModalEliminar();
     localStorage.removeItem('token');
     mostrarLogin();
-    alert('✅ Cuenta desactivada correctamente. Gracias por usar Blackterz.');
+    mostrarToast('✅ Cuenta desactivada. Gracias por usar Blackterz.', 'exito');
 
   } catch (error) {
     console.error('Error de red:', error);
-    alert('❌ Error de conexión con el servidor');
+    statusEl.textContent = '❌ Error de conexión con el servidor';
+    statusEl.style.color = '#e94560';
+    btnConfirmar.textContent = 'Eliminar cuenta';
   }
-});
+}
 
 // ============================================================
 // CERRAR SESIÓN (LOGOUT)
