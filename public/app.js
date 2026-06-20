@@ -3575,16 +3575,16 @@ btnEliminarCuenta?.addEventListener('click', () => {
     overlay.id = 'modal-eliminar-cuenta-overlay';
     overlay.className = 'modal-overlay hidden';
     overlay.innerHTML = `
-      <div class="modal-content" style="max-width: 440px;">
+      <div class="modal-content" style="max-width: 440px; border: 1px solid rgba(233,69,96,0.3);">
         <div class="modal-header">
           <h3 style="color:#e94560;">⚠️ Eliminar cuenta</h3>
           <button class="modal-cerrar btn-cerrar-eliminar-cuenta">&times;</button>
         </div>
         <div class="modal-body">
           <p style="margin-bottom:12px;">
-            Esta acción <strong>desactivará tu cuenta permanentemente</strong>.
-            Tus rutinas e historial se conservarán, pero no podrás
-            iniciar sesión nuevamente.
+            Esta acción <strong>desactivará tu cuenta</strong>. Tus rutinas
+            e historial se conservarán, pero no podrás iniciar sesión hasta
+            que un administrador la reactive.
           </p>
           <p style="margin-bottom:16px; opacity:0.7; font-size:13px;">
             Escribí <strong>"ELIMINAR"</strong> en mayúsculas para confirmar.
