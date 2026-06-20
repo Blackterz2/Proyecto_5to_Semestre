@@ -71,7 +71,7 @@ DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=tu_contraseña
-DB_NAME=fitness_app
+DB_NAME=blackterz
 
 # JWT
 JWT_SECRET=tu_secreto_jwt

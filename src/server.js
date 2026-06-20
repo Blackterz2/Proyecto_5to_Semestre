@@ -21,6 +21,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 // Importamos las rutas de healthcheck
 const healthRouter = require('./routes/health');
@@ -57,6 +59,14 @@ const PORT = process.env.PORT || 3000;
 // Los middlewares son funciones que se ejecutan en CADA request
 // antes de llegar a las rutas. El orden IMPORTA.
 
+// helmet(): agrega headers HTTP de seguridad automáticamente
+// (previene XSS, clickjacking, MIME sniffing, etc.)
+app.use(helmet({
+  contentSecurityPolicy: false, // desactivado porque el frontend
+                                 // usa CDNs externos (Chart.js)
+                                 // y scripts inline
+}));
+
 // cors(): permite que otros dominios (como un frontend en React)
 // hagan peticiones a esta API. Sin esto, el navegador bloquea
 // las requests por política de seguridad CORS.
@@ -85,6 +95,22 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 }));
 
 // ============================================================
+// RATE LIMITING — Login y Registro
+// ============================================================
+// Limita a 10 intentos cada 15 minutos por IP. Previene
+// ataques de fuerza bruta contra contraseñas.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10,                   // máximo 10 intentos por IP
+  message: {
+    ok: false,
+    mensaje: 'Demasiados intentos. Esperá 15 minutos e intentá de nuevo.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// ============================================================
 // 4. RUTAS
 // ============================================================
 // Montamos el router de health en /api/health.
@@ -107,7 +133,7 @@ app.use('/api/sesiones', sesionRouter);
 // Ejemplos:
 //   router.post('/register') → POST /api/auth/register
 //   router.post('/login')    → POST /api/auth/login
-app.use('/api/auth', authRouter);
+app.use('/api/auth', authLimiter, authRouter);
 
 // Montamos el router de ejercicios en /api/ejercicios.
 // Ejemplo: router.get('/') → GET /api/ejercicios
@@ -141,12 +167,19 @@ app.use((err, req, res, next) => {
 // ============================================================
 // 6. INICIAR EL SERVIDOR
 // ============================================================
-// app.listen() arranca el servidor HTTP en el puerto indicado.
-// El callback se ejecuta cuando el servidor está listo.
-app.listen(PORT, () => {
-  console.log(`========================================`);
-  console.log(`  🚀 Servidor corriendo en el puerto ${PORT}`);
-  console.log(`  📡 Healthcheck: http://localhost:${PORT}/api/health`);
-  console.log(`  🖥️  Frontend:     http://localhost:${PORT}/`);
-  console.log(`========================================`);
-});
+// Solo levantar el servidor si este archivo se ejecuta
+// directamente (node src/server.js o npm start).
+// Si se importa desde un test (require('../src/server')),
+// NO se abre ningún puerto — los tests usan supertest que
+// simula las requests sin necesidad de un servidor real.
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`========================================`);
+    console.log(`  🚀 Servidor corriendo en el puerto ${PORT}`);
+    console.log(`  📡 Healthcheck: http://localhost:${PORT}/api/health`);
+    console.log(`  🖥️  Frontend:     http://localhost:${PORT}/`);
+    console.log(`========================================`);
+  });
+}
+
+module.exports = app;
