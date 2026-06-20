@@ -1952,6 +1952,15 @@ body {
 }
 
 /* ============================================================
+   RESPONSIVE — Ocultar saludo en pantallas muy angostas
+   ============================================================ */
+@media (max-width: 480px) {
+  #header-saludo-usuario {
+    display: none;
+  }
+}
+
+/* ============================================================
    MODAL ONBOARDING — Full-screen bloqueante
    ============================================================ */
 .modal-onboarding {

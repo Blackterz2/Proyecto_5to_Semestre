@@ -1189,7 +1189,7 @@ function mostrarAuthRegister() {
 function mostrarLogin() {
   loginSection?.classList.remove('hidden');
   appContent?.classList.add('hidden');
-  btnLogout?.classList.add('hidden');
+  document.getElementById('header-user-area')?.classList.add('hidden');
   // Resetear a la vista de login (por si estaba en registro)
   mostrarAuthLogin();
 }
@@ -1200,7 +1200,16 @@ function mostrarLogin() {
 function mostrarApp() {
   loginSection?.classList.add('hidden');
   appContent?.classList.remove('hidden');
-  btnLogout?.classList.remove('hidden');
+
+  const headerUserArea = document.getElementById('header-user-area');
+  const saludoEl = document.getElementById('header-saludo-usuario');
+
+  if (headerUserArea) headerUserArea.classList.remove('hidden');
+
+  if (saludoEl) {
+    const nombre = extraerNombreDelToken();
+    saludoEl.textContent = nombre ? `Hola, ${nombre} 👋` : '';
+  }
 }
 
 // ============================================================
@@ -2627,6 +2636,11 @@ function inicializarFormulariosPerfil() {
           }
           if (document.getElementById('perfil-email')) {
             document.getElementById('perfil-email').textContent = userData.email || '';
+          }
+          // Actualizar saludo del header si cambió el nombre
+          const saludoEl = document.getElementById('header-saludo-usuario');
+          if (saludoEl && userData.nombre) {
+            saludoEl.textContent = `Hola, ${userData.nombre} 👋`;
           }
           renderizarPerfil();
         }
