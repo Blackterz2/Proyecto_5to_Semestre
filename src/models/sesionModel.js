@@ -302,6 +302,84 @@ async function obtenerUltimaSesionPorRutina(rutinaId, usuarioId) {
 }
 
 // ============================================================
+// obtenerDetalleSesion(sesionId, usuarioId)
+// ============================================================
+// Trae una sesión específica con sus ejercicios y series,
+// verificando que pertenezca al usuario (anti-spoofing).
+async function obtenerDetalleSesion(sesionId, usuarioId) {
+  // 1. Verificar que la sesión pertenece al usuario
+  const [sesionRows] = await pool.execute(
+    `SELECT se.id, se.fecha, se.notas, se.duracion_minutos, r.nombre AS rutina_nombre
+     FROM sesiones_entrenamiento se
+     LEFT JOIN rutinas r ON se.rutina_id = r.id
+     WHERE se.id = ? AND se.usuario_id = ?`,
+    [sesionId, usuarioId]
+  );
+
+  if (sesionRows.length === 0) {
+    return null; // No existe o no pertenece a este usuario
+  }
+
+  const sesion = sesionRows[0];
+
+  // 2. Traer los ejercicios con sus series (tabular, se reestructura después)
+  const [filas] = await pool.execute(
+    `SELECT
+       sej.id              AS sesion_ejercicio_id,
+       sej.notas           AS ejercicio_notas,
+       e.id                AS ejercicio_id,
+       e.nombre            AS ejercicio_nombre,
+       e.gif_url,
+       e.imagen_url,
+       ss.numero_serie,
+       ss.repeticiones,
+       ss.peso,
+       ss.completada
+     FROM sesion_ejercicios sej
+     JOIN ejercicios e ON e.id = sej.ejercicio_id
+     LEFT JOIN sesion_series ss ON ss.sesion_ejercicio_id = sej.id
+     WHERE sej.sesion_id = ?
+     ORDER BY sej.id, ss.numero_serie`,
+    [sesionId]
+  );
+
+  // 3. Reestructurar de tabular (filas planas) a jerárquico
+  //    (mismo patrón que ya se usa en obtenerRutinaConEjercicios)
+  const ejerciciosMap = new Map();
+
+  for (const fila of filas) {
+    if (!ejerciciosMap.has(fila.sesion_ejercicio_id)) {
+      ejerciciosMap.set(fila.sesion_ejercicio_id, {
+        ejercicio_id: fila.ejercicio_id,
+        nombre: fila.ejercicio_nombre,
+        gif_url: fila.gif_url,
+        imagen_url: fila.imagen_url,
+        notas: fila.ejercicio_notas,
+        series: [],
+      });
+    }
+
+    if (fila.numero_serie !== null) {
+      ejerciciosMap.get(fila.sesion_ejercicio_id).series.push({
+        numero_serie: fila.numero_serie,
+        repeticiones: fila.repeticiones,
+        peso: fila.peso,
+        completada: !!fila.completada,
+      });
+    }
+  }
+
+  return {
+    id: sesion.id,
+    fecha: sesion.fecha,
+    notas: sesion.notas,
+    duracion_minutos: sesion.duracion_minutos,
+    rutina_nombre: sesion.rutina_nombre,
+    ejercicios: Array.from(ejerciciosMap.values()),
+  };
+}
+
+// ============================================================
 // finalizarSesion(sesionId, duracionMinutos)
 // ============================================================
 // Marca una sesión como completada y registra su duración.
@@ -315,4 +393,4 @@ async function finalizarSesion(sesionId, duracionMinutos) {
   );
 }
 
-module.exports = { guardarSesionCompleta, obtenerHistorialUsuario, obtenerUltimaSesionPorRutina, finalizarSesion };
+module.exports = { guardarSesionCompleta, obtenerHistorialUsuario, obtenerUltimaSesionPorRutina, obtenerDetalleSesion, finalizarSesion };

@@ -1879,7 +1879,7 @@ function renderTablaHistorial(pagina) {
     }
 
     html += `
-      <tr class="clickable-row">
+      <tr class="historial-row" data-sesion-id="${sesion.id}" style="cursor:pointer;">
         <td>📅 ${fechaFormateada}</td>
         <td><span class="rutina-badge">${rutinaNombre}</span></td>
         <td>${duracionTexto}</td>
@@ -2263,6 +2263,129 @@ async function cargarHistorial() {
         </div>
       `;
     }
+  }
+}
+
+// ============================================================
+// abrirDetalleSesion(sesionId)
+// ============================================================
+// Abre un modal con el detalle completo de una sesión:
+// qué ejercicios se hicieron, con qué peso y repeticiones en cada serie.
+// ============================================================
+async function abrirDetalleSesion(sesionId) {
+  let overlay = document.getElementById('modal-detalle-sesion-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'modal-detalle-sesion-overlay';
+    overlay.className = 'modal-overlay hidden';
+    overlay.innerHTML = `
+      <div class="modal-content" style="max-width: 560px; max-height: 80vh; overflow-y: auto;">
+        <div class="modal-header">
+          <h3 id="detalle-sesion-titulo">Detalle de sesión</h3>
+          <button id="btn-cerrar-detalle-sesion" class="modal-cerrar">&times;</button>
+        </div>
+        <div class="modal-body" id="detalle-sesion-body">
+          <div class="loading">Cargando...</div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.add('hidden');
+    });
+    document.getElementById('btn-cerrar-detalle-sesion').addEventListener('click', () => {
+      overlay.classList.add('hidden');
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
+        overlay.classList.add('hidden');
+      }
+    });
+  }
+
+  const body = document.getElementById('detalle-sesion-body');
+  const titulo = document.getElementById('detalle-sesion-titulo');
+  body.innerHTML = '<div class="loading">Cargando...</div>';
+  overlay.classList.remove('hidden');
+
+  try {
+    const res = await fetch(`/api/sesiones/${sesionId}`, {
+      headers: { 'Authorization': 'Bearer ' + getToken() },
+    });
+
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      mostrarLogin();
+      return;
+    }
+
+    if (!res.ok) {
+      body.innerHTML = '<p style="opacity:0.7;">No se pudo cargar el detalle de esta sesi\u00f3n.</p>';
+      return;
+    }
+
+    const json = await res.json();
+    const sesion = json.data;
+
+    const fecha = new Date(sesion.fecha.split('T')[0] + 'T00:00:00');
+    const fechaTexto = fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    titulo.textContent = `${sesion.rutina_nombre || 'Entrenamiento'} \u2014 ${fechaTexto}`;
+
+    let html = `
+      <p style="opacity:0.7; font-size:13px; margin-bottom:16px;">
+        \u23f1\ufe0f ${sesion.duracion_minutos || 0} min
+        ${sesion.notas ? `\u00b7 \ud83d\udcdd ${sesion.notas}` : ''}
+      </p>
+    `;
+
+    if (!sesion.ejercicios || sesion.ejercicios.length === 0) {
+      html += '<p style="opacity:0.6;">Esta sesi\u00f3n no tiene ejercicios registrados.</p>';
+    } else {
+      sesion.ejercicios.forEach(ej => {
+        html += `
+          <div style="margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid rgba(255,255,255,0.07);">
+            <h4 style="margin:0 0 8px; font-size:15px;">${ej.nombre}</h4>
+        `;
+
+        if (ej.series.length === 0) {
+          html += '<p style="opacity:0.5; font-size:13px;">Sin series registradas.</p>';
+        } else {
+          html += `
+            <table style="width:100%; font-size:13px; border-collapse:collapse;">
+              <thead>
+                <tr style="opacity:0.6;">
+                  <td style="padding:4px 0;">Serie</td>
+                  <td style="padding:4px 0;">Peso</td>
+                  <td style="padding:4px 0;">Reps</td>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+          ej.series.forEach(s => {
+            html += `
+              <tr>
+                <td style="padding:2px 0;">#${s.numero_serie}</td>
+                <td style="padding:2px 0;">${s.peso || 0} kg</td>
+                <td style="padding:2px 0;">${s.repeticiones || 0}</td>
+              </tr>
+            `;
+          });
+          html += `</tbody></table>`;
+        }
+
+        if (ej.notas) {
+          html += `<p style="opacity:0.6; font-size:12px; margin-top:6px;">\ud83d\udcdd ${ej.notas}</p>`;
+        }
+
+        html += `</div>`;
+      });
+    }
+
+    body.innerHTML = html;
+  } catch (err) {
+    body.innerHTML = '<p style="opacity:0.7;">Error de conexi\u00f3n al cargar el detalle.</p>';
   }
 }
 
@@ -4457,6 +4580,14 @@ function mostrarDetalleEjercicio(ejercicioId) {
 // Delegación global: captura clics en .img-ejercicio-thumb
 // Busca el id del ejercicio en el catálogo para mostrar datos completos
 document.addEventListener('click', (e) => {
+  // Click en una fila del historial → abrir detalle de sesión
+  const filaHistorial = e.target.closest('.historial-row');
+  if (filaHistorial) {
+    const sesionId = filaHistorial.dataset.sesionId;
+    if (sesionId) abrirDetalleSesion(sesionId);
+    return;
+  }
+
   const img = e.target.closest('.img-ejercicio-thumb, .card-img img, .card-thumb');
   if (!img) return;
 

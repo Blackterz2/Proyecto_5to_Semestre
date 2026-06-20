@@ -5,7 +5,7 @@
 // completos, y se los pasa al modelo para que los guarde
 // usando una transacción SQL.
 
-const { guardarSesionCompleta, obtenerHistorialUsuario, obtenerUltimaSesionPorRutina } = require('../models/sesionModel');
+const { guardarSesionCompleta, obtenerHistorialUsuario, obtenerUltimaSesionPorRutina, obtenerDetalleSesion } = require('../models/sesionModel');
 
 // ============================================================
 // crearSesion(req, res) - POST /api/sesiones
@@ -254,4 +254,34 @@ async function getUltimaSesion(req, res) {
   }
 }
 
-module.exports = { crearSesion, getHistorial, getUltimaSesion };
+// ============================================================
+// getDetalleSesion(req, res) - GET /api/sesiones/:id
+// ============================================================
+// Devuelve el detalle completo de una sesión (ejercicios + series).
+//
+// SEGURIDAD:
+//   - usuario_id viene del JWT (req.usuario.usuario_id)
+//   - Si la sesión pertenece a otro usuario → 404 (no revelamos que existe)
+async function getDetalleSesion(req, res) {
+  try {
+    const { id } = req.params;
+    const usuarioId = req.usuario.usuario_id;
+
+    if (!id || isNaN(Number(id))) {
+      return res.status(400).json({ ok: false, mensaje: 'ID de sesión inválido' });
+    }
+
+    const detalle = await obtenerDetalleSesion(Number(id), usuarioId);
+
+    if (!detalle) {
+      return res.status(404).json({ ok: false, mensaje: 'Sesión no encontrada' });
+    }
+
+    res.json({ ok: true, data: detalle });
+  } catch (error) {
+    console.error('Error al obtener detalle de sesión:', error.message);
+    res.status(500).json({ ok: false, mensaje: 'Error al obtener el detalle de la sesión' });
+  }
+}
+
+module.exports = { crearSesion, getHistorial, getUltimaSesion, getDetalleSesion };
