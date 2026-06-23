@@ -59,15 +59,18 @@
 
 ### Base de Datos
 
-La base de datos real se llama **`fitness_app`** (no `blackterz`). Fue creada en un proyecto anterior y reutilizada acá. Contiene las tablas:
+La base de datos real se llama **`fitness_app`** (no `blackterz`). Fue creada en un proyecto anterior y reutilizada acá. Contiene **10 tablas**:
 
-- `usuarios` — id, nombre, email, password, created_at, **activo** (soft delete), **avatar_url** (foto de perfil), updated_at
+- `usuarios` — id, nombre, email, password, created_at, updated_at, **activo** (soft delete), **avatar_url** (foto de perfil), **nivel_experiencia** (Principiante/Intermedio/Avanzado), **peso_actual**, **estatura_cm**, **onboarding_completado**, **sexo** (Masculino/Femenino/Otro)
 - `rutinas` — id, usuario_id, nombre, descripcion, **activa** (soft delete), created_at, updated_at
-- `ejercicios` — id, nombre, descripcion, categoria, imagen_url
+- `ejercicios` — id, nombre, descripcion, categoria, imagen_url, **gif_url** (animación opcional)
+- `grupos_musculares` — id, nombre
+- `ejercicios_grupos_musculares` — id, ejercicio_id, grupo_muscular_id, **tipo** (principal/secundario)
 - `ejercicios_rutinas` — id, rutina_id, ejercicio_id, orden, series, repeticiones, peso, **tiempo_descanso** (temporizador entre series)
-- `sesiones_entrenamiento` — id, usuario_id, rutina_id, fecha, **estado** (pendiente/completada/cancelada), notas, duracion_minutos, created_at, updated_at
+- `sesiones_entrenamiento` — id, usuario_id, rutina_id, fecha, notas, duracion_minutos, created_at, updated_at
 - `sesion_ejercicios` — id, sesion_id, ejercicio_id, **orden** (índice numérico), notas, created_at
 - `sesion_series` — id, sesion_ejercicio_id, numero_serie, repeticiones, peso, **completada** (checkbox por serie), created_at
+- `password_resets` — id, usuario_id, token, expira_en, usado, created_at
 
 ---
 
@@ -83,11 +86,7 @@ Proyecto_Blackterz/
 ├── seed.sql                      ← SQL generado con 64 ejercicios
 ├── docs/
 │   ├── GUIA-TECNICA.md           ← Este archivo 🎯
-│   ├── migracion-activo.sql      ← Migración: columna activo (soft delete)
-│   ├── migracion-avatar.sql      ← Migración: columna avatar_url
-│   ├── migracion-hito13.sql      ← Migración: columna activa en rutinas
-│   ├── migracion-dropear-notas.sql     ← Migración: dropear columnas notas sin uso
-│   └── migracion-dropear-columnas.sql  ← Migración: dropear 6 columnas redundantes
+│   └── schema.sql                ← CREATE TABLE de las 10 tablas (estado final)
 ├── public/                       ← Frontend (estático)
 │   ├── index.html                ← Página principal con login + registro + rutina + perfil + modales
 │   ├── styles.css                ← Dark mode + cards + buscador + responsive + floating timer
