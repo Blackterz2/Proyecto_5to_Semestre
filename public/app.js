@@ -2396,10 +2396,13 @@ async function cargarLogros() {
       const esSiguiente = siguiente && logro.id === siguiente.id;
 
       return `
-        <div style="
-          background: ${desbloqueado
-            ? 'rgba(255,255,255,0.06)'
-            : 'rgba(255,255,255,0.02)'};
+        <div
+          ${desbloqueado ? `data-logro-id="${logro.id}"` : ''}
+          style="
+            cursor: ${desbloqueado ? 'pointer' : 'default'};
+            background: ${desbloqueado
+              ? 'rgba(255,255,255,0.06)'
+              : 'rgba(255,255,255,0.02)'};
           border: 1px solid ${desbloqueado
             ? 'rgba(233,69,96,0.4)'
             : 'rgba(255,255,255,0.08)'};
@@ -2444,6 +2447,109 @@ async function cargarLogros() {
   } catch (err) {
     grid.innerHTML = '<p style="opacity:0.5;">Error al cargar los logros.</p>';
   }
+}
+
+// ============================================================
+// lanzarConfetti()
+// ============================================================
+// Crea 60 piezas de confetti que caen desde arriba y se
+// eliminan solas al terminar la animación.
+function lanzarConfetti() {
+  const colores = ['#e94560', '#00d2aa', '#FFD700', '#6c63ff', '#fff'];
+  const total = 60;
+
+  for (let i = 0; i < total; i++) {
+    const pieza = document.createElement('div');
+    pieza.className = 'confetti-piece';
+
+    pieza.style.left = Math.random() * 100 + 'vw';
+    pieza.style.top = '-10px';
+    pieza.style.background = colores[Math.floor(Math.random() * colores.length)];
+
+    const size = 6 + Math.random() * 8;
+    pieza.style.width = size + 'px';
+    pieza.style.height = size + 'px';
+
+    const duracion = 2 + Math.random() * 2;
+    pieza.style.animationDuration = duracion + 's';
+    pieza.style.animationDelay = Math.random() * 0.8 + 's';
+
+    document.body.appendChild(pieza);
+    setTimeout(() => pieza.remove(), (duracion + 1) * 1000);
+  }
+}
+
+// ============================================================
+// mostrarModalLogro(logro)
+// ============================================================
+// Muestra un modal con la imagen grande del logro, nombre,
+// descripción y confetti. Reusa o crea el overlay una vez.
+function mostrarModalLogro(logro) {
+  let overlay = document.getElementById('modal-logro-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'modal-logro-overlay';
+    overlay.className = 'modal-overlay hidden';
+    overlay.innerHTML = `
+      <div id="modal-logro-content" class="modal-content" style="
+        max-width: 360px;
+        text-align: center;
+        padding: 32px 24px;
+        border: 1px solid rgba(233,69,96,0.4);
+      ">
+        <img id="modal-logro-img" src="" alt=""
+          style="width:140px; height:140px; object-fit:contain;
+                 margin: 0 auto 20px; display:block;"
+        >
+        <div style="
+          font-size: 11px; font-weight: 700; letter-spacing: 2px;
+          color: #e94560; text-transform: uppercase; margin-bottom: 8px;
+        ">🏆 Logro Desbloqueado</div>
+        <h3 id="modal-logro-nombre" style="
+          font-size: 22px; font-weight: 800;
+          margin: 0 0 10px;
+        "></h3>
+        <p id="modal-logro-desc" style="
+          font-size: 14px; opacity: 0.7;
+          line-height: 1.5; margin: 0 0 24px;
+        "></p>
+        <button id="modal-logro-cerrar" class="btn-login" style="width:100%;">
+          ¡Genial! 💪
+        </button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) cerrarModalLogro();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
+        cerrarModalLogro();
+      }
+    });
+
+    document.getElementById('modal-logro-cerrar')
+      .addEventListener('click', cerrarModalLogro);
+  }
+
+  const content = document.getElementById('modal-logro-content');
+  content.style.animation = 'none';
+  content.offsetHeight; // forzar reflow para reiniciar animación
+  content.style.animation = '';
+
+  document.getElementById('modal-logro-img').src = logro.imagen;
+  document.getElementById('modal-logro-img').alt = logro.nombre;
+  document.getElementById('modal-logro-nombre').textContent = logro.nombre;
+  document.getElementById('modal-logro-desc').textContent = logro.desc;
+
+  overlay.classList.remove('hidden');
+  lanzarConfetti();
+}
+
+function cerrarModalLogro() {
+  document.getElementById('modal-logro-overlay')?.classList.add('hidden');
 }
 
 // ============================================================
@@ -4888,6 +4994,15 @@ document.addEventListener('click', (e) => {
   if (filaHistorial) {
     const sesionId = filaHistorial.dataset.sesionId;
     if (sesionId) abrirDetalleSesion(sesionId);
+    return;
+  }
+
+  // Click en tarjeta de logro desbloqueada → mostrar modal
+  const tarjetaLogro = e.target.closest('[data-logro-id]');
+  if (tarjetaLogro) {
+    const logroId = parseInt(tarjetaLogro.dataset.logroId);
+    const logro = LOGROS.find(l => l.id === logroId);
+    if (logro) mostrarModalLogro(logro);
     return;
   }
 
