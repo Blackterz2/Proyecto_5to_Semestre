@@ -112,18 +112,78 @@ let onboardingData = null;
 // LOGROS — Definición de los 12 logros del sistema
 // ============================================================
 const LOGROS = [
-  { id: 1,  dias: 1,   emoji: '🪨', nombre: 'Primer Paso',          desc: 'Completaste tu primer día de entrenamiento.' },
-  { id: 2,  dias: 7,   emoji: '🥉', nombre: 'Semana Imbatible',      desc: '7 días de entrenamiento completados.' },
-  { id: 3,  dias: 15,  emoji: '🔶', nombre: 'Hábito Formado',        desc: '15 días. Ya es parte de tu rutina.' },
-  { id: 4,  dias: 30,  emoji: '⚙️', nombre: 'Disciplina de Acero',   desc: 'Un mes entero entrenando. Imparable.' },
-  { id: 5,  dias: 50,  emoji: '🥈', nombre: 'Mitad de Camino',       desc: '50 días. La plata ya brilla en vos.' },
-  { id: 6,  dias: 75,  emoji: '🛡️', nombre: 'Rompiendo Barreras',    desc: '75 días. Nada te detiene.' },
-  { id: 7,  dias: 100, emoji: '👑', nombre: 'El Club de los 100',     desc: '100 días. Bienvenido a la élite.' },
-  { id: 8,  dias: 150, emoji: '🔥', nombre: 'Modo Bestia',            desc: '150 días de pura dedicación.' },
-  { id: 9,  dias: 200, emoji: '💎', nombre: 'Estilo de Vida',         desc: '200 días. Esto ya es quién sos.' },
-  { id: 10, dias: 250, emoji: '⚡', nombre: 'Imparable',              desc: '250 días. Leyenda en construcción.' },
-  { id: 11, dias: 300, emoji: '🌌', nombre: 'Titán',                  desc: '300 días. Atlas envidiaría tu constancia.' },
-  { id: 12, dias: 365, emoji: '🌟', nombre: 'Leyenda del Gym',        desc: 'Un año completo. Sos una leyenda.' },
+  {
+    id: 1, dias: 1,
+    imagen: 'imagen/Logro_1_Un_Dia.png',
+    nombre: 'Primer Paso',
+    desc: 'Completaste tu primer día de entrenamiento.'
+  },
+  {
+    id: 2, dias: 7,
+    imagen: 'imagen/Logro_2_7_Dias.png',
+    nombre: 'Semana Imbatible',
+    desc: '7 días de entrenamiento completados.'
+  },
+  {
+    id: 3, dias: 15,
+    imagen: 'imagen/Logro_3_15_Dias.png',
+    nombre: 'Hábito Formado',
+    desc: '15 días. Ya es parte de tu rutina.'
+  },
+  {
+    id: 4, dias: 30,
+    imagen: 'imagen/Logro_4_30_Dias.png',
+    nombre: 'Disciplina de Acero',
+    desc: 'Un mes entero entrenando. Imparable.'
+  },
+  {
+    id: 5, dias: 50,
+    imagen: 'imagen/Logro_5_50_Dias.png',
+    nombre: 'Mitad de Camino',
+    desc: '50 días. La plata ya brilla en vos.'
+  },
+  {
+    id: 6, dias: 75,
+    imagen: 'imagen/Logro_6_75_dias.png',
+    nombre: 'Rompiendo Barreras',
+    desc: '75 días. Nada te detiene.'
+  },
+  {
+    id: 7, dias: 100,
+    imagen: 'imagen/Logro_7_100_Dias.png',
+    nombre: 'El Club de los 100',
+    desc: '100 días. Bienvenido a la élite.'
+  },
+  {
+    id: 8, dias: 150,
+    imagen: 'imagen/Logro_8_150_Dias.png',
+    nombre: 'Modo Bestia',
+    desc: '150 días de pura dedicación.'
+  },
+  {
+    id: 9, dias: 200,
+    imagen: 'imagen/Logro_9_200_Dias.png',
+    nombre: 'Estilo de Vida',
+    desc: '200 días. Esto ya es quién sos.'
+  },
+  {
+    id: 10, dias: 250,
+    imagen: 'imagen/Logro_10_250_Dias.png',
+    nombre: 'Imparable',
+    desc: '250 días. Leyenda en construcción.'
+  },
+  {
+    id: 11, dias: 300,
+    imagen: 'imagen/Logro_11_300_Dias.png',
+    nombre: 'Titán',
+    desc: '300 días. Atlas envidiaría tu constancia.'
+  },
+  {
+    id: 12, dias: 365,
+    imagen: 'imagen/Logro_12_365_Dias.png',
+    nombre: 'Leyenda del Gym',
+    desc: 'Un año completo. Sos una leyenda.'
+  },
 ];
 
 // ============================================================
@@ -2348,12 +2408,25 @@ async function cargarLogros() {
           text-align: center;
           transition: transform 0.2s;
           position: relative;
-          ${!desbloqueado ? 'opacity: 0.4; filter: grayscale(1);' : ''}
-          ${esSiguiente ? 'opacity: 0.7; filter: grayscale(0.5); border-color: rgba(233,69,96,0.3);' : ''}
+          ${!desbloqueado ? 'opacity: 0.4;' : ''}
+          ${esSiguiente ? 'opacity: 0.7; border-color: rgba(233,69,96,0.3);' : ''}
         ">
           ${esSiguiente ? '<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e94560;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">PRÓXIMO</div>' : ''}
-          <div style="font-size: 2.2rem; margin-bottom: 8px;">
-            ${logro.emoji}
+          <div style="margin-bottom: 8px;">
+            <img
+              src="${logro.imagen}"
+              alt="${logro.nombre}"
+              style="
+                width: 72px;
+                height: 72px;
+                object-fit: contain;
+                display: block;
+                margin: 0 auto;
+                ${!desbloqueado ? 'filter: grayscale(1) opacity(0.4);' : ''}
+              "
+              onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+            >
+            <div style="display:none; font-size:2rem;">🏆</div>
           </div>
           <div style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">
             ${logro.nombre}
