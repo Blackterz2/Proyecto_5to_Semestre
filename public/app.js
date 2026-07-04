@@ -144,7 +144,7 @@ const LOGROS = [
   },
   {
     id: 6, dias: 75,
-    imagen: 'imagen/Logro_6_75_dias.png',
+    imagen: 'imagen/Logro_6_75_Dias.png',
     nombre: 'Rompiendo Barreras',
     desc: '75 días. Nada te detiene.'
   },
