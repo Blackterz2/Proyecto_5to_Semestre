@@ -109,6 +109,24 @@ const btnRecomendacionNo   = document.getElementById('btn-recomendacion-no');
 let onboardingData = null;
 
 // ============================================================
+// LOGROS — Definición de los 12 logros del sistema
+// ============================================================
+const LOGROS = [
+  { id: 1,  dias: 1,   emoji: '🪨', nombre: 'Primer Paso',          desc: 'Completaste tu primer día de entrenamiento.' },
+  { id: 2,  dias: 7,   emoji: '🥉', nombre: 'Semana Imbatible',      desc: '7 días de entrenamiento completados.' },
+  { id: 3,  dias: 15,  emoji: '🔶', nombre: 'Hábito Formado',        desc: '15 días. Ya es parte de tu rutina.' },
+  { id: 4,  dias: 30,  emoji: '⚙️', nombre: 'Disciplina de Acero',   desc: 'Un mes entero entrenando. Imparable.' },
+  { id: 5,  dias: 50,  emoji: '🥈', nombre: 'Mitad de Camino',       desc: '50 días. La plata ya brilla en vos.' },
+  { id: 6,  dias: 75,  emoji: '🛡️', nombre: 'Rompiendo Barreras',    desc: '75 días. Nada te detiene.' },
+  { id: 7,  dias: 100, emoji: '👑', nombre: 'El Club de los 100',     desc: '100 días. Bienvenido a la élite.' },
+  { id: 8,  dias: 150, emoji: '🔥', nombre: 'Modo Bestia',            desc: '150 días de pura dedicación.' },
+  { id: 9,  dias: 200, emoji: '💎', nombre: 'Estilo de Vida',         desc: '200 días. Esto ya es quién sos.' },
+  { id: 10, dias: 250, emoji: '⚡', nombre: 'Imparable',              desc: '250 días. Leyenda en construcción.' },
+  { id: 11, dias: 300, emoji: '🌌', nombre: 'Titán',                  desc: '300 días. Atlas envidiaría tu constancia.' },
+  { id: 12, dias: 365, emoji: '🌟', nombre: 'Leyenda del Gym',        desc: 'Un año completo. Sos una leyenda.' },
+];
+
+// ============================================================
 // CSS DEL TOUR (inyectado dinámicamente)
 // ============================================================
 const tourCSS = `
@@ -2237,6 +2255,7 @@ async function cargarHistorial() {
           cargarRutina();
         });
       }
+      cargarLogros();
       return;
     }
 
@@ -2262,6 +2281,9 @@ async function cargarHistorial() {
     // La tabla recibe solo la página 1
     renderTablaHistorial(1);
 
+    // Cargar logros después de mostrar el historial
+    cargarLogros();
+
   } catch (error) {
     console.error('Error al cargar historial:', error.message);
     if (historialContainer) {
@@ -2272,6 +2294,82 @@ async function cargarHistorial() {
         </div>
       `;
     }
+  }
+}
+
+// ============================================================
+// cargarLogros()
+// ============================================================
+// Obtiene los días entrenados desde el backend y renderiza
+// la grilla de logros con estado bloqueado/desbloqueado/próximo.
+async function cargarLogros() {
+  const grid = document.getElementById('logros-grid');
+  const contador = document.getElementById('logros-dias-contador');
+  if (!grid) return;
+
+  try {
+    const res = await fetch('/api/sesiones/logros', {
+      headers: { 'Authorization': 'Bearer ' + getToken() },
+    });
+
+    if (!res.ok) {
+      grid.innerHTML = '<p style="opacity:0.5;">No se pudieron cargar los logros.</p>';
+      return;
+    }
+
+    const json = await res.json();
+    const dias = json.data.dias_totales || 0;
+
+    // Contador de días
+    if (contador) {
+      contador.textContent = dias === 0
+        ? 'Completá tu primer entrenamiento para desbloquear logros.'
+        : `Días entrenados: ${dias} — seguí así 💪`;
+    }
+
+    // Siguiente logro a desbloquear
+    const siguiente = LOGROS.find(l => l.dias > dias);
+
+    // Renderizar grid
+    grid.innerHTML = LOGROS.map(logro => {
+      const desbloqueado = dias >= logro.dias;
+      const esSiguiente = siguiente && logro.id === siguiente.id;
+
+      return `
+        <div style="
+          background: ${desbloqueado
+            ? 'rgba(255,255,255,0.06)'
+            : 'rgba(255,255,255,0.02)'};
+          border: 1px solid ${desbloqueado
+            ? 'rgba(233,69,96,0.4)'
+            : 'rgba(255,255,255,0.08)'};
+          border-radius: 12px;
+          padding: 16px 12px;
+          text-align: center;
+          transition: transform 0.2s;
+          position: relative;
+          ${!desbloqueado ? 'opacity: 0.4; filter: grayscale(1);' : ''}
+          ${esSiguiente ? 'opacity: 0.7; filter: grayscale(0.5); border-color: rgba(233,69,96,0.3);' : ''}
+        ">
+          ${esSiguiente ? '<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#e94560;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">PRÓXIMO</div>' : ''}
+          <div style="font-size: 2.2rem; margin-bottom: 8px;">
+            ${logro.emoji}
+          </div>
+          <div style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">
+            ${logro.nombre}
+          </div>
+          <div style="font-size: 11px; opacity: 0.6; margin-bottom: 8px; line-height: 1.3;">
+            ${logro.desc}
+          </div>
+          <div style="font-size: 11px; font-weight: 600; color: ${desbloqueado ? '#00d2aa' : 'inherit'};">
+            ${desbloqueado ? '✓ Desbloqueado' : `${logro.dias} días`}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    grid.innerHTML = '<p style="opacity:0.5;">Error al cargar los logros.</p>';
   }
 }
 

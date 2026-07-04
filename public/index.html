@@ -226,12 +226,21 @@
         </section>
 
         <!-- ============================================================
-        SECCIÓN: PLACEHOLDER DE PROGRESO
+        SECCIÓN: LOGROS
         ============================================================ -->
         <section class="perfil-section">
-          <div id="progreso-placeholder" class="progreso-caja">
-            <span class="progreso-icon">📊</span>
-            <p>Próximamente: Gráficos de Progreso y Récords Personales</p>
+          <h2 class="perfil-section-title">🏆 Mis Logros</h2>
+          <p id="logros-dias-contador" style="
+            font-size: 13px;
+            opacity: 0.6;
+            margin-bottom: 20px;
+          "></p>
+          <div id="logros-grid" style="
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 16px;
+          ">
+            <div class="loading">Cargando logros...</div>
           </div>
         </section>
 

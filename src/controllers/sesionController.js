@@ -5,7 +5,7 @@
 // completos, y se los pasa al modelo para que los guarde
 // usando una transacción SQL.
 
-const { guardarSesionCompleta, obtenerHistorialUsuario, obtenerUltimaSesionPorRutina, obtenerDetalleSesion } = require('../models/sesionModel');
+const { guardarSesionCompleta, obtenerHistorialUsuario, obtenerUltimaSesionPorRutina, obtenerDetalleSesion, contarDiasEntrenamiento } = require('../models/sesionModel');
 
 // ============================================================
 // crearSesion(req, res) - POST /api/sesiones
@@ -284,4 +284,20 @@ async function getDetalleSesion(req, res) {
   }
 }
 
-module.exports = { crearSesion, getHistorial, getUltimaSesion, getDetalleSesion };
+// ============================================================
+// getLogros(req, res) - GET /api/sesiones/logros
+// ============================================================
+// Devuelve la cantidad de días únicos entrenados para calcular
+// los logros del usuario.
+async function getLogros(req, res) {
+  try {
+    const usuarioId = req.usuario.usuario_id;
+    const dias = await contarDiasEntrenamiento(usuarioId);
+    res.json({ ok: true, data: { dias_totales: dias } });
+  } catch (error) {
+    console.error('Error al obtener logros:', error.message);
+    res.status(500).json({ ok: false, mensaje: 'Error al obtener logros' });
+  }
+}
+
+module.exports = { crearSesion, getHistorial, getUltimaSesion, getDetalleSesion, getLogros };

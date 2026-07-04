@@ -5,7 +5,7 @@
 // con el controlador.
 
 const { Router } = require('express');
-const { crearSesion, getHistorial, getUltimaSesion, getDetalleSesion } = require('../controllers/sesionController');
+const { crearSesion, getHistorial, getUltimaSesion, getDetalleSesion, getLogros } = require('../controllers/sesionController');
 const { verificarToken } = require('../middlewares/authMiddleware');
 
 const router = Router();
@@ -23,10 +23,15 @@ router.post('/', verificarToken, crearSesion);
 // 🔒 Protegida con JWT: devuelve SOLO las sesiones del usuario del token
 router.get('/ultima/:rutina_id', verificarToken, getUltimaSesion);
 
+// GET /api/sesiones/logros - Días entrenados para calcular logros
+// 🔒 Protegida con JWT
+// ⚠️ VA ANTES de /:id para que Express no confunda "logros" con un :id
+router.get('/logros', verificarToken, getLogros);
+
 // GET /api/sesiones/:id - Detalle completo de una sesión (ejercicios + series)
 // 🔒 Protegida con JWT: solo el dueño puede ver sus propios detalles
-// ⚠️ VA DESPUÉS de /ultima/:rutina_id para que Express no confunda
-//    "ultima" con un :id
+// ⚠️ VA DESPUÉS de /ultima/:rutina_id y /logros para que Express no confunda
+//    "ultima" o "logros" con un :id
 router.get('/:id', verificarToken, getDetalleSesion);
 
 module.exports = router;

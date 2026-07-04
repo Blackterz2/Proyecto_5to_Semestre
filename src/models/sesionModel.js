@@ -380,6 +380,21 @@ async function obtenerDetalleSesion(sesionId, usuarioId) {
 }
 
 // ============================================================
+// contarDiasEntrenamiento(usuarioId)
+// ============================================================
+// Cuenta días ÚNICOS en que el usuario entrenó
+// (puede haber múltiples sesiones en un mismo día)
+async function contarDiasEntrenamiento(usuarioId) {
+  const [rows] = await pool.execute(
+    `SELECT COUNT(DISTINCT DATE(fecha)) AS dias_totales
+     FROM sesiones_entrenamiento
+     WHERE usuario_id = ?`,
+    [usuarioId]
+  );
+  return rows[0]?.dias_totales || 0;
+}
+
+// ============================================================
 // finalizarSesion(sesionId, duracionMinutos)
 // ============================================================
 // Marca una sesión como completada y registra su duración.
@@ -393,4 +408,4 @@ async function finalizarSesion(sesionId, duracionMinutos) {
   );
 }
 
-module.exports = { guardarSesionCompleta, obtenerHistorialUsuario, obtenerUltimaSesionPorRutina, obtenerDetalleSesion, finalizarSesion };
+module.exports = { guardarSesionCompleta, obtenerHistorialUsuario, obtenerUltimaSesionPorRutina, obtenerDetalleSesion, finalizarSesion, contarDiasEntrenamiento };
