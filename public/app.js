@@ -531,6 +531,46 @@ function extraerUsuarioIdDelToken() {
   }
 }
 
+// ============================================================
+// formatearPeso(kg) — Convierte y formatea un valor de peso
+// según la preferencia del usuario en localStorage.
+// Siempre recibe kg (como está en la BD) y devuelve
+// el string formateado para mostrar al usuario.
+// ============================================================
+function formatearPeso(kg) {
+  if (kg === null || kg === undefined || kg === '' || isNaN(Number(kg))) return '—';
+  const unidad = localStorage.getItem('unidad_peso') || 'kg';
+  const valor = parseFloat(kg);
+  if (unidad === 'lbs') {
+    return `${(valor * 2.20462).toFixed(1)} lbs`;
+  }
+  return `${valor} kg`;
+}
+
+function unidadPesoLabel() {
+  return localStorage.getItem('unidad_peso') || 'kg';
+}
+
+// Convierte el valor que ingresó el usuario a kg para la BD.
+// Si la preferencia es lbs, divide por 2.20462.
+// Si es kg, devuelve el valor tal cual.
+function aKg(valor) {
+  if (valor === null || valor === undefined || valor === '' || isNaN(Number(valor))) return null;
+  const unidad = localStorage.getItem('unidad_peso') || 'kg';
+  const num = parseFloat(valor);
+  return unidad === 'lbs' ? parseFloat((num / 2.20462).toFixed(2)) : num;
+}
+
+// Convierte el valor que ingresó el usuario a cm para la BD.
+// Si la preferencia es in, multiplica por 2.54.
+// Si es cm, devuelve el valor tal cual.
+function aCm(valor) {
+  if (valor === null || valor === undefined || valor === '' || isNaN(Number(valor))) return null;
+  const unidad = localStorage.getItem('unidad_estatura') || 'cm';
+  const num = parseFloat(valor);
+  return unidad === 'in' ? parseFloat((num * 2.54).toFixed(1)) : num;
+}
+
 // restaurarEstadoEntrenamiento() — Intenta recuperar un draft
 // guardado. Si existe y la rutina sigue disponible, restaura
 // el estado visual (checkboxes, notas) y el temporizador.
@@ -653,7 +693,7 @@ async function restaurarEstadoEntrenamiento() {
             const inputPeso = document.createElement('input');
             inputPeso.type = 'number';
             inputPeso.className = 'input-serie';
-            inputPeso.placeholder = 'kg';
+            inputPeso.placeholder = unidadPesoLabel();
             inputPeso.min = 0;
             inputPeso.step = 0.5;
             inputPeso.dataset.campo = 'peso';
@@ -1052,7 +1092,7 @@ function inyectarAnteriorEnCards() {
       const span = document.createElement('span');
       span.className = 'anterior-valor';
       span.style.cssText = 'font-size: 12px; color: #6c63ff; opacity: 0.8; margin-left: 8px; white-space: nowrap;';
-      span.textContent = `(${datos.peso}kg x ${datos.repeticiones})`;
+      span.textContent = `(${formatearPeso(datos.peso)} x ${datos.repeticiones})`;
 
       const checkSerie = row.querySelector('.check-serie');
       if (checkSerie) {
@@ -1540,7 +1580,7 @@ async function cargarRutina(rutinaId) {
       if (ejercicio.peso) {
         const s = document.createElement('div');
         s.className = 'stat';
-        s.innerHTML = `<span class="stat-icon">🏋️</span><span class="stat-value">${ejercicio.peso}</span><span class="stat-label">kg (plan)</span>`;
+        s.innerHTML = `<span class="stat-icon">🏋️</span><span class="stat-value">${formatearPeso(ejercicio.peso)}</span><span class="stat-label">(plan)</span>`;
         stats.appendChild(s);
       }
 
@@ -1579,7 +1619,7 @@ async function cargarRutina(rutinaId) {
         const inputPeso = document.createElement('input');
         inputPeso.type = 'number';
         inputPeso.className = 'input-serie';
-        inputPeso.placeholder = 'kg';
+        inputPeso.placeholder = unidadPesoLabel();
         inputPeso.min = 0;
         inputPeso.step = 0.5;
         inputPeso.dataset.campo = 'peso';
@@ -1725,7 +1765,7 @@ async function cargarRutina(rutinaId) {
         {
           selector: '.serie-row',
           titulo: '📋 Una serie',
-          mensaje: 'Cada fila es una serie. Ingresá el peso (kg) y las repeticiones que hiciste.'
+          mensaje: 'Cada fila es una serie. Ingresá el peso y las repeticiones que hiciste.'
         },
         {
           selector: '.input-serie',
@@ -1849,7 +1889,7 @@ function renderGraficoVolumen(historial) {
       data: {
         labels,
         datasets: [{
-          label: 'Volumen (kg)',
+          label: `Volumen (${unidadPesoLabel()})`,
           data: valores,
           backgroundColor: 'rgba(108, 99, 255, 0.7)',
           borderColor: 'rgba(108, 99, 255, 1)',
@@ -1864,7 +1904,13 @@ function renderGraficoVolumen(historial) {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: ctx => ` ${ctx.parsed.y.toLocaleString('es-ES')} kg`
+              label: ctx => {
+                const unidad = unidadPesoLabel();
+                const val = unidad === 'lbs'
+                  ? (ctx.parsed.y * 2.20462).toFixed(1)
+                  : ctx.parsed.y.toLocaleString('es-ES');
+                return ` ${val} ${unidad}`;
+              }
             }
           }
         },
@@ -1883,7 +1929,13 @@ function renderGraficoVolumen(historial) {
             ticks: {
               color: 'rgba(255,255,255,0.6)',
               font: { size: 11 },
-              callback: val => val.toLocaleString('es-ES') + ' kg'
+              callback: val => {
+                const unidad = unidadPesoLabel();
+                const v = unidad === 'lbs'
+                  ? (val * 2.20462).toFixed(1)
+                  : val.toLocaleString('es-ES');
+                return `${v} ${unidad}`;
+              }
             },
             beginAtZero: true
           }
@@ -1961,7 +2013,7 @@ function renderTablaHistorial(pagina) {
 
     let volumenTexto = '—';
     if (sesion.volumen_total_kg && Number(sesion.volumen_total_kg) > 0) {
-      volumenTexto = `💪 ${Number(sesion.volumen_total_kg).toLocaleString('es-ES')} kg`;
+      volumenTexto = `💪 ${formatearPeso(sesion.volumen_total_kg)}`;
     }
 
     let seriesTexto = '—';
@@ -2674,7 +2726,7 @@ async function abrirDetalleSesion(sesionId) {
             html += `
               <tr>
                 <td style="padding:2px 0;">#${s.numero_serie}</td>
-                <td style="padding:2px 0;">${s.peso || 0} kg</td>
+                <td style="padding:2px 0;">${formatearPeso(s.peso || 0)}</td>
                 <td style="padding:2px 0;">${s.repeticiones || 0}</td>
               </tr>
             `;
@@ -2749,6 +2801,11 @@ function mostrarVistaAjustes() {
 function volverAPerfil() {
   ajustesView?.classList.add('hidden');
   perfilView?.classList.remove('hidden');
+  // Refrescar display de peso/estatura y gráfico con la unidad activa
+  renderizarPerfil();
+  if (historialDatosCompletos && historialDatosCompletos.length > 0) {
+    renderGraficoVolumen(historialDatosCompletos);
+  }
 }
 
 // ============================================================
@@ -3434,8 +3491,8 @@ formOnboarding?.addEventListener('submit', (e) => {
   onboardingData = {
     nivel_experiencia: fd.get('nivel_experiencia'),
     sexo: fd.get('sexo'),
-    peso_actual: fd.get('peso_actual') ? Number(fd.get('peso_actual')) : null,
-    estatura_cm: fd.get('estatura_cm') ? Number(fd.get('estatura_cm')) : null,
+    peso_actual: fd.get('peso_actual') ? aKg(fd.get('peso_actual')) : null,
+    estatura_cm: fd.get('estatura_cm') ? aCm(fd.get('estatura_cm')) : null,
   };
   // Ocultar formulario, mostrar pregunta
   stepForm?.classList.add('hidden');
@@ -4012,7 +4069,7 @@ function crearCardEjercicioExtra(ejercicio, notasValue) {
   const inputPeso = document.createElement('input');
   inputPeso.type = 'number';
   inputPeso.className = 'input-serie';
-  inputPeso.placeholder = 'kg';
+  inputPeso.placeholder = unidadPesoLabel();
   inputPeso.min = 0;
   inputPeso.step = 0.5;
   inputPeso.dataset.campo = 'peso';
@@ -4451,12 +4508,13 @@ btnFinalizar?.addEventListener('click', async () => {
       if (!checkbox || !checkbox.checked) return; // saltea esta serie
 
       // Convertimos a número. Si está vacío o no es número, usamos 0.
-      const peso = inputPeso ? Number(inputPeso.value) || 0 : 0;
+      const pesoIngresado = inputPeso ? Number(inputPeso.value) || 0 : 0;
+      const pesoEnKg = aKg(pesoIngresado); // convertir a kg antes de enviar
       const repeticiones = inputReps ? Number(inputReps.value) || 0 : 0;
 
       series.push({
         numero_serie: index + 1, // 1-indexed como en la DB
-        peso: peso,
+        peso: pesoEnKg,
         repeticiones: repeticiones,
         completada: true,
       });
