@@ -28,6 +28,7 @@ const btnTabEntrenar  = document.getElementById('btn-tab-entrenar');
 const rutinasView     = document.getElementById('rutinas-view');
 const perfilView      = document.getElementById('perfil-view');
 const entrenarView    = document.getElementById('entrenar-view');
+const ajustesView     = document.getElementById('ajustes-view');
 const historialContainer = document.getElementById('historial-container');
 const perfilEmail     = document.getElementById('perfil-email');
 const perfilNombre    = document.getElementById('perfil-nombre');
@@ -1301,6 +1302,7 @@ function mostrarVistaRutinas() {
   rutinasView?.classList.remove('hidden');
   perfilView?.classList.add('hidden');
   entrenarView?.classList.add('hidden');
+  ajustesView?.classList.add('hidden');
   btnTabRutinas?.classList.add('nav-tab--active');
   btnTabPerfil?.classList.remove('nav-tab--active');
   btnTabEntrenar?.classList.remove('nav-tab--active');
@@ -1312,6 +1314,7 @@ function mostrarVistaPerfil() {
   rutinasView?.classList.add('hidden');
   perfilView?.classList.remove('hidden');
   entrenarView?.classList.add('hidden');
+  ajustesView?.classList.add('hidden');
   btnTabRutinas?.classList.remove('nav-tab--active');
   btnTabPerfil?.classList.add('nav-tab--active');
   btnTabEntrenar?.classList.remove('nav-tab--active');
@@ -1323,6 +1326,7 @@ function mostrarEntrenar() {
   rutinasView?.classList.add('hidden');
   perfilView?.classList.add('hidden');
   entrenarView?.classList.remove('hidden');
+  ajustesView?.classList.add('hidden');
   btnTabRutinas?.classList.remove('nav-tab--active');
   btnTabPerfil?.classList.remove('nav-tab--active');
   btnTabEntrenar?.classList.add('nav-tab--active');
@@ -2072,17 +2076,34 @@ async function renderizarPerfil() {
     const ficha = document.getElementById('header-ficha');
     if (!ficha) return;
 
-    const peso = userData.peso_actual ? `${parseFloat(userData.peso_actual)} kg` : '—';
-    const estatura = userData.estatura_cm ? `${userData.estatura_cm} cm` : '—';
+    const unidadPeso = localStorage.getItem('unidad_peso') || 'kg';
+    const unidadEstatura = localStorage.getItem('unidad_estatura') || 'cm';
+
+    let pesoStr = '—';
+    if (userData.peso_actual) {
+      const kg = parseFloat(userData.peso_actual);
+      pesoStr = unidadPeso === 'lbs'
+        ? `${(kg * 2.20462).toFixed(1)} lbs`
+        : `${kg} kg`;
+    }
+
+    let estaturaStr = '—';
+    if (userData.estatura_cm) {
+      const cm = parseInt(userData.estatura_cm, 10);
+      estaturaStr = unidadEstatura === 'in'
+        ? `${(cm / 2.54).toFixed(0)} in`
+        : `${cm} cm`;
+    }
+
     const nivel = userData.nivel_experiencia || '—';
 
     ficha.innerHTML = `
       <div class="dato-card">
-        <span class="dato-card__value">${peso}</span>
+        <span class="dato-card__value">${pesoStr}</span>
         <span class="dato-card__label">Peso</span>
       </div>
       <div class="dato-card">
-        <span class="dato-card__value">${estatura}</span>
+        <span class="dato-card__value">${estaturaStr}</span>
         <span class="dato-card__label">Estatura</span>
       </div>
       <div class="dato-card">
@@ -2232,9 +2253,9 @@ async function cargarHistorial() {
         mensaje: 'Hacé clic en la foto para subir una imagen. Se actualiza al instante.'
       },
       {
-        selector: '#btn-abrir-modal-perfil',
-        titulo: '⚙️ Editar perfil',
-        mensaje: 'Desde acá podés cambiar tu nombre de usuario o actualizar tu contraseña.'
+        selector: '#btn-ir-ajustes',
+        titulo: '⚙️ Ajustes',
+        mensaje: 'Desde acá podés cambiar tu nombre, email, unidades, contraseña o eliminar tu cuenta.'
       },
       {
         selector: () => {
@@ -2678,363 +2699,56 @@ async function abrirDetalleSesion(sesionId) {
 // ============================================================
 // inicializarFormulariosPerfil()
 // ============================================================
-// inicializarFormulariosPerfil()
-// ============================================================
-// Inyecta el botón "⚙️ Editar Perfil" y crea un único modal
-// con dos secciones:
-//
-//   Sección 1 — Datos Personales (Nombre, Email, Peso, Estatura,
-//                Nivel) → PATCH /api/usuario/perfil
-//   Sección 2 — Seguridad (Contraseña Actual, Nueva Contraseña,
-//                Repetir Contraseña) → PUT /api/usuarios/contrasena
-//
-// Cada sección tiene su propio botón de guardar y muestra errores
-// en su propio bloque. La contraseña nueva se valida en cliente
-// con mínimo 8 caracteres, mayúscula, minúscula, número y
-// carácter especial.
+// Inyecta el botón "⚙️ Ajustes" debajo del email en la vista
+// perfil. El botón navega a #ajustes-view donde están los
+// formularios de edición agrupados (datos personales, unidades,
+// seguridad, eliminar cuenta).
 // ============================================================
 function inicializarFormulariosPerfil() {
 
   // ============================================================
-  // PASO 1 — Botón "⚙️ Editar Perfil" debajo del email
+  // Botón "⚙️ Ajustes" debajo del email — reemplaza el viejo
+  // modal perfil. Abre ajustes-view en lugar de un modal.
   // ============================================================
-  if (!document.getElementById('btn-abrir-modal-perfil')) {
-    const btnEditar = document.createElement('button');
-    btnEditar.id = 'btn-abrir-modal-perfil';
-    btnEditar.className = 'btn-logout';
-    btnEditar.textContent = '⚙️ Editar Perfil';
-    btnEditar.style.marginTop = '12px';
+  if (!document.getElementById('btn-ir-ajustes')) {
+    const btnAjustes = document.createElement('button');
+    btnAjustes.id = 'btn-ir-ajustes';
+    btnAjustes.className = 'btn-logout';
+    btnAjustes.textContent = '⚙️ Ajustes';
+    btnAjustes.style.marginTop = '12px';
 
     const infoDiv = document.querySelector('.perfil-info');
-    if (infoDiv) infoDiv.appendChild(btnEditar);
+    if (infoDiv) infoDiv.appendChild(btnAjustes);
   }
 
   // ============================================================
-  // PASO 2 — Crear el modal (una sola vez)
+  // Evento: al hacer clic en btn-ir-ajustes → mostrar ajustes
   // ============================================================
-  if (!document.getElementById('modal-perfil-overlay')) {
-    const overlay = document.createElement('div');
-    overlay.id = 'modal-perfil-overlay';
-    overlay.className = 'modal-overlay hidden';
-    overlay.innerHTML = `
-      <div class="modal-content" style="max-width: 480px;">
-        <div class="modal-header">
-          <h3>⚙️ Editar Perfil</h3>
-          <button id="btn-cerrar-modal-perfil" class="modal-cerrar">&times;</button>
-        </div>
-
-        <div class="modal-body modal-body-scroll">
-
-          <!-- ================================================
-               SECCIÓN 1: DATOS PERSONALES
-               ================================================ -->
-          <h4 class="modal-section-title">📋 Datos Personales</h4>
-
-          <div class="form-group">
-            <label class="form-label">Nombre</label>
-            <input type="text" id="modal-input-nombre" class="form-input" maxlength="50" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Email</label>
-            <input type="email" id="modal-input-email" class="form-input" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Peso (kg)</label>
-            <input type="number" id="modal-input-peso" class="form-input" step="0.1" min="1" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Estatura (cm)</label>
-            <input type="number" id="modal-input-estatura" class="form-input" step="1" min="1" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Nivel de experiencia</label>
-            <select id="modal-input-nivel" class="form-input">
-              <option value="Principiante">Principiante</option>
-              <option value="Intermedio">Intermedio</option>
-              <option value="Avanzado">Avanzado</option>
-            </select>
-          </div>
-
-          <div id="modal-error-personal" class="form-error hidden"></div>
-
-          <button class="btn btn-primary" id="btn-guardar-personal" style="width:100%; margin-bottom:24px;">
-            Guardar Perfil
-          </button>
-
-          <!-- ================================================
-               SECCIÓN 2: SEGURIDAD
-               ================================================ -->
-          <hr style="border:none; border-top:1px solid rgba(255,255,255,0.08); margin:0 0 20px 0;" />
-
-          <h4 class="modal-section-title">🔒 Seguridad</h4>
-
-          <div class="form-group">
-            <label class="form-label">Contraseña actual</label>
-            <input type="password" id="modal-input-pass-actual" class="form-input" autocomplete="current-password" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Nueva contraseña <span style="color:#888;font-weight:400;font-size:0.72rem;">(mín. 8 caracteres, mayúscula, minúscula, número y carácter especial)</span></label>
-            <input type="password" id="modal-input-pass-nueva" class="form-input" autocomplete="new-password" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Repetir contraseña</label>
-            <input type="password" id="modal-input-pass-repetir" class="form-input" autocomplete="new-password" />
-          </div>
-
-          <div id="modal-error-seguridad" class="form-error hidden"></div>
-
-          <button class="btn btn-primary" id="btn-guardar-seguridad" style="width:100%;">
-            Actualizar Contraseña
-          </button>
-
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn btn-secondary" id="btn-cancelar-modal-perfil">Cerrar</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(overlay);
-
-    // ============================================================
-    // FUNCIONES COMUNES
-    // ============================================================
-    function ocultarError(id) {
-      const el = document.getElementById(id);
-      if (el) el.classList.add('hidden');
-    }
-    function mostrarError(id, msg) {
-      const el = document.getElementById(id);
-      if (el) { el.textContent = msg; el.classList.remove('hidden'); }
-    }
-
-    // ============================================================
-    // PRECARGA — llena los campos personales desde userData
-    // ============================================================
-    function precargarModal() {
-      const data = userData || {};
-      const get = (id) => document.getElementById(id);
-      if (get('modal-input-nombre'))   get('modal-input-nombre').value   = data.nombre || '';
-      if (get('modal-input-email'))    get('modal-input-email').value    = data.email || '';
-      if (get('modal-input-peso'))     get('modal-input-peso').value     = data.peso_actual || '';
-      if (get('modal-input-estatura')) get('modal-input-estatura').value = data.estatura_cm || '';
-      const nivelSelect = get('modal-input-nivel');
-      if (nivelSelect) nivelSelect.value = data.nivel_experiencia || 'Principiante';
-      // Limpiar campos de seguridad siempre al abrir
-      if (get('modal-input-pass-actual'))  get('modal-input-pass-actual').value  = '';
-      if (get('modal-input-pass-nueva'))   get('modal-input-pass-nueva').value   = '';
-      if (get('modal-input-pass-repetir')) get('modal-input-pass-repetir').value = '';
-      // Ocultar errores
-      ocultarError('modal-error-personal');
-      ocultarError('modal-error-seguridad');
-    }
-
-    function abrirModalPerfil() {
-      precargarModal();
-      overlay.classList.remove('hidden');
-    }
-
-    function cerrarModalPerfil() {
-      overlay.classList.add('hidden');
-    }
-
-    // ============================================================
-    // EVENT LISTENERS COMUNES (cierre)
-    // ============================================================
-    document.getElementById('btn-cerrar-modal-perfil')?.addEventListener('click', cerrarModalPerfil);
-    document.getElementById('btn-cancelar-modal-perfil')?.addEventListener('click', cerrarModalPerfil);
-
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) cerrarModalPerfil();
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
-        cerrarModalPerfil();
-      }
-    });
-
-    // ============================================================
-    // SECCIÓN 1 — Guardar Datos Personales (PATCH)
-    // ============================================================
-    document.getElementById('btn-guardar-personal')?.addEventListener('click', async () => {
-      ocultarError('modal-error-personal');
-
-      const nombre     = document.getElementById('modal-input-nombre').value.trim();
-      const email      = document.getElementById('modal-input-email').value.trim();
-      const peso       = document.getElementById('modal-input-peso').value;
-      const estatura   = document.getElementById('modal-input-estatura').value;
-      const nivel      = document.getElementById('modal-input-nivel').value;
-
-      // Validación
-      if (!nombre) {
-        mostrarError('modal-error-personal', 'El nombre es obligatorio');
-        return;
-      }
-      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        mostrarError('modal-error-personal', 'Ingresá un email válido');
-        return;
-      }
-
-      const body = { nombre, email, nivel_experiencia: nivel };
-      if (peso)     body.peso_actual = Number(peso);
-      if (estatura) body.estatura_cm = Number(estatura);
-
-      const token = getToken();
-      if (!token) { mostrarLogin(); return; }
-
-      try {
-        const res = await fetch('/api/usuario/perfil', {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token,
-          },
-          body: JSON.stringify(body),
-        });
-
-        const result = await res.json();
-
-        if (!res.ok) {
-          mostrarError('modal-error-personal', result.message || 'Error al guardar');
-          return;
-        }
-
-        if (result.token) {
-          localStorage.setItem('token', result.token);
-        }
-
-        // Refrescar DOM
-        userData = result.data;
-        if (userData) {
-          if (document.getElementById('perfil-nombre')) {
-            document.getElementById('perfil-nombre').textContent = userData.nombre || 'Usuario';
-          }
-          if (document.getElementById('perfil-email')) {
-            document.getElementById('perfil-email').textContent = userData.email || '';
-          }
-          // Actualizar saludo del header si cambió el nombre
-          const saludoEl = document.getElementById('header-saludo-usuario');
-          if (saludoEl && userData.nombre) {
-            saludoEl.textContent = `Hola, ${userData.nombre} 👋`;
-          }
-          renderizarPerfil();
-        }
-
-        mostrarToast('Perfil actualizado ✓', 'success');
-
-      } catch (err) {
-        mostrarError('modal-error-personal', 'Error de conexión al servidor');
-        console.error(err);
-      }
-    });
-
-    // ============================================================
-    // SECCIÓN 2 — Guardar Contraseña (PUT /api/usuarios/contrasena)
-    // ============================================================
-    document.getElementById('btn-guardar-seguridad')?.addEventListener('click', async () => {
-      ocultarError('modal-error-seguridad');
-
-      const passActual  = document.getElementById('modal-input-pass-actual').value;
-      const passNueva   = document.getElementById('modal-input-pass-nueva').value;
-      const passRepetir = document.getElementById('modal-input-pass-repetir').value;
-
-      // ============================================================
-      // La contraseña es OPCIONAL. Si todos los campos están vacíos,
-      // saltamos la sección sin mostrar error.
-      // ============================================================
-      const todosVacios = !passActual && !passNueva && !passRepetir;
-      if (todosVacios) {
-        mostrarToast('Contraseña no modificada (campos vacíos)', 'info');
-        return;
-      }
-
-      // Si algún campo tiene contenido, validamos TODOS
-      if (!passActual) {
-        mostrarError('modal-error-seguridad', 'Ingresá tu contraseña actual');
-        return;
-      }
-      if (!passNueva) {
-        mostrarError('modal-error-seguridad', 'Ingresá la nueva contraseña');
-        return;
-      }
-      if (passNueva.length < 8) {
-        mostrarError('modal-error-seguridad', 'La nueva contraseña debe tener al menos 8 caracteres');
-        return;
-      }
-      if (!/(?=.*[a-z])/.test(passNueva)) {
-        mostrarError('modal-error-seguridad', 'La nueva contraseña debe tener al menos una minúscula');
-        return;
-      }
-      if (!/(?=.*[A-Z])/.test(passNueva)) {
-        mostrarError('modal-error-seguridad', 'La nueva contraseña debe tener al menos una mayúscula');
-        return;
-      }
-      if (!/(?=.*\d)/.test(passNueva)) {
-        mostrarError('modal-error-seguridad', 'La nueva contraseña debe tener al menos un número');
-        return;
-      }
-      if (!/(?=.*[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;'\/`~])/.test(passNueva)) {
-        mostrarError('modal-error-seguridad', 'La nueva contraseña debe tener al menos un carácter especial');
-        return;
-      }
-      if (passNueva !== passRepetir) {
-        mostrarError('modal-error-seguridad', 'Las contraseñas nuevas no coinciden');
-        return;
-      }
-
-      const token = getToken();
-      if (!token) { mostrarLogin(); return; }
-
-      try {
-        const res = await fetch('/api/usuarios/contrasena', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token,
-          },
-          body: JSON.stringify({
-            passwordActual: passActual,
-            passwordNueva: passNueva,
-          }),
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          if (res.status === 401) {
-            mostrarError('modal-error-seguridad', 'Contraseña actual incorrecta');
-          } else {
-            mostrarError('modal-error-seguridad', err.message || 'Error al cambiar contraseña');
-          }
-          return;
-        }
-
-        // Limpiar campos de seguridad
-        document.getElementById('modal-input-pass-actual').value  = '';
-        document.getElementById('modal-input-pass-nueva').value   = '';
-        document.getElementById('modal-input-pass-repetir').value = '';
-
-        mostrarToast('Contraseña actualizada ✓', 'success');
-
-      } catch (err) {
-        mostrarError('modal-error-seguridad', 'Error de conexión al servidor');
-        console.error(err);
-      }
-    });
-
-    // ============================================================
-    // PASO FINAL — Conectar botón de apertura
-    // ============================================================
-    function conectarBotonAbrirModal() {
-      const btn = document.getElementById('btn-abrir-modal-perfil');
-      if (!btn) return;
-      const btnNuevo = btn.cloneNode(true);
-      btn.parentNode.replaceChild(btnNuevo, btn);
-      btnNuevo.addEventListener('click', abrirModalPerfil);
-    }
-    conectarBotonAbrirModal();
+  const btnIrAjustes = document.getElementById('btn-ir-ajustes');
+  if (btnIrAjustes) {
+    const btnClonado = btnIrAjustes.cloneNode(true);
+    btnIrAjustes.parentNode.replaceChild(btnClonado, btnIrAjustes);
+    btnClonado.addEventListener('click', mostrarVistaAjustes);
   }
+}
+
+// ============================================================
+// mostrarVistaAjustes() / volverAPerfil()
+// ============================================================
+// Navegan entre #perfil-view y #ajustes-view sin cambiar la
+// pestaña activa de la navegación porque ajustes es un sub-nivel
+// de perfil.
+// ============================================================
+function mostrarVistaAjustes() {
+  perfilView?.classList.add('hidden');
+  ajustesView?.classList.remove('hidden');
+  precargarAjustes();
+  cargarUnidades();
+}
+
+function volverAPerfil() {
+  ajustesView?.classList.add('hidden');
+  perfilView?.classList.remove('hidden');
 }
 
 // ============================================================
@@ -3855,7 +3569,7 @@ avatarInput?.addEventListener('change', async () => {
 // En lugar de prompt() del navegador, usamos un modal estilizado
 // con input de confirmación y botón deshabilitado hasta que se
 // escriba exactamente "ELIMINAR".
-btnEliminarCuenta?.addEventListener('click', () => {
+function abrirModalEliminarCuenta() {
   // ============================================================
   // CREAR MODAL UNA SOLA VEZ (patrón lazy singleton)
   // ============================================================
@@ -3955,7 +3669,11 @@ btnEliminarCuenta?.addEventListener('click', () => {
   document.getElementById('eliminar-status').textContent = '';
   overlay.classList.remove('hidden');
   document.getElementById('input-confirmar-eliminar').focus();
-});
+}
+
+// Ahora vinculamos ambos botones a la misma función
+btnEliminarCuenta?.addEventListener('click', abrirModalEliminarCuenta);
+document.getElementById('btn-eliminar-ajustes')?.addEventListener('click', abrirModalEliminarCuenta);
 
 // ============================================================
 // cerrarModalEliminar() — Cierra el modal sin hacer nada
@@ -4443,6 +4161,211 @@ btnTabPerfil?.addEventListener('click', () => {
   renderizarPerfil();
   cargarVitrinaPRs();
 });
+
+// ============================================================
+// AJUSTES: Volver al perfil
+// ============================================================
+document.getElementById('btn-volver-perfil')?.addEventListener('click', volverAPerfil);
+
+// ============================================================
+// AJUSTES: Guardar Datos Personales (PATCH /api/usuario/perfil)
+// ============================================================
+document.getElementById('btn-guardar-ajustes-personal')?.addEventListener('click', async () => {
+  ocultarErrorAjustes('ajustes-error-personal');
+
+  const nombre     = document.getElementById('ajustes-input-nombre').value.trim();
+  const email      = document.getElementById('ajustes-input-email').value.trim();
+  const nivel      = document.getElementById('ajustes-input-nivel').value;
+
+  if (!nombre) {
+    mostrarErrorAjustes('ajustes-error-personal', 'El nombre es obligatorio');
+    return;
+  }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    mostrarErrorAjustes('ajustes-error-personal', 'Ingresá un email válido');
+    return;
+  }
+
+  const body = { nombre, email, nivel_experiencia: nivel };
+
+  const token = getToken();
+  if (!token) { mostrarLogin(); return; }
+
+  try {
+    const res = await fetch('/api/usuario/perfil', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      mostrarErrorAjustes('ajustes-error-personal', result.message || 'Error al guardar');
+      return;
+    }
+
+    if (result.token) {
+      localStorage.setItem('token', result.token);
+    }
+
+    userData = result.data;
+    if (userData) {
+      const nombreEl = document.getElementById('perfil-nombre');
+      if (nombreEl) nombreEl.textContent = userData.nombre || 'Usuario';
+      const emailEl = document.getElementById('perfil-email');
+      if (emailEl) emailEl.textContent = userData.email || '';
+      const saludoEl = document.getElementById('header-saludo-usuario');
+      if (saludoEl && userData.nombre) {
+        saludoEl.textContent = `Hola, ${userData.nombre} 👋`;
+      }
+      renderizarPerfil();
+    }
+
+    mostrarToast('Perfil actualizado ✓', 'success');
+
+  } catch (err) {
+    mostrarErrorAjustes('ajustes-error-personal', 'Error de conexión al servidor');
+    console.error(err);
+  }
+});
+
+// ============================================================
+// AJUSTES: Guardar Contraseña (PUT /api/usuarios/contrasena)
+// ============================================================
+document.getElementById('btn-guardar-ajustes-seguridad')?.addEventListener('click', async () => {
+  ocultarErrorAjustes('ajustes-error-seguridad');
+
+  const passActual  = document.getElementById('ajustes-input-pass-actual').value;
+  const passNueva   = document.getElementById('ajustes-input-pass-nueva').value;
+  const passRepetir = document.getElementById('ajustes-input-pass-repetir').value;
+
+  const todosVacios = !passActual && !passNueva && !passRepetir;
+  if (todosVacios) {
+    mostrarToast('Contraseña no modificada (campos vacíos)', 'info');
+    return;
+  }
+
+  if (!passActual) {
+    mostrarErrorAjustes('ajustes-error-seguridad', 'Ingresá tu contraseña actual');
+    return;
+  }
+  if (!passNueva) {
+    mostrarErrorAjustes('ajustes-error-seguridad', 'Ingresá la nueva contraseña');
+    return;
+  }
+  if (passNueva.length < 8) {
+    mostrarErrorAjustes('ajustes-error-seguridad', 'La nueva contraseña debe tener al menos 8 caracteres');
+    return;
+  }
+  if (!/(?=.*[a-z])/.test(passNueva)) {
+    mostrarErrorAjustes('ajustes-error-seguridad', 'La nueva contraseña debe tener al menos una minúscula');
+    return;
+  }
+  if (!/(?=.*[A-Z])/.test(passNueva)) {
+    mostrarErrorAjustes('ajustes-error-seguridad', 'La nueva contraseña debe tener al menos una mayúscula');
+    return;
+  }
+  if (!/(?=.*\d)/.test(passNueva)) {
+    mostrarErrorAjustes('ajustes-error-seguridad', 'La nueva contraseña debe tener al menos un número');
+    return;
+  }
+  if (!/(?=.*[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;'\/`~])/.test(passNueva)) {
+    mostrarErrorAjustes('ajustes-error-seguridad', 'La nueva contraseña debe tener al menos un carácter especial');
+    return;
+  }
+  if (passNueva !== passRepetir) {
+    mostrarErrorAjustes('ajustes-error-seguridad', 'Las contraseñas nuevas no coinciden');
+    return;
+  }
+
+  const token = getToken();
+  if (!token) { mostrarLogin(); return; }
+
+  try {
+    const res = await fetch('/api/usuarios/contrasena', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+      },
+      body: JSON.stringify({
+        passwordActual: passActual,
+        passwordNueva: passNueva,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      if (res.status === 401) {
+        mostrarErrorAjustes('ajustes-error-seguridad', 'Contraseña actual incorrecta');
+      } else {
+        mostrarErrorAjustes('ajustes-error-seguridad', err.message || 'Error al cambiar contraseña');
+      }
+      return;
+    }
+
+    document.getElementById('ajustes-input-pass-actual').value  = '';
+    document.getElementById('ajustes-input-pass-nueva').value   = '';
+    document.getElementById('ajustes-input-pass-repetir').value = '';
+
+    mostrarToast('Contraseña actualizada ✓', 'success');
+
+  } catch (err) {
+    mostrarErrorAjustes('ajustes-error-seguridad', 'Error de conexión al servidor');
+    console.error(err);
+  }
+});
+
+// ============================================================
+// AJUSTES: Unidades (guardar preferencia en localStorage)
+// ============================================================
+function cargarUnidades() {
+  const pesoPref = localStorage.getItem('unidad_peso') || 'kg';
+  const estaturaPref = localStorage.getItem('unidad_estatura') || 'cm';
+  const selPeso = document.getElementById('ajustes-unidad-peso');
+  const selEstatura = document.getElementById('ajustes-unidad-estatura');
+  if (selPeso) selPeso.value = pesoPref;
+  if (selEstatura) selEstatura.value = estaturaPref;
+}
+
+document.getElementById('ajustes-unidad-peso')?.addEventListener('change', (e) => {
+  localStorage.setItem('unidad_peso', e.target.value);
+  renderizarPerfil(); // refrescar vista perfil si está visible
+});
+
+document.getElementById('ajustes-unidad-estatura')?.addEventListener('change', (e) => {
+  localStorage.setItem('unidad_estatura', e.target.value);
+  renderizarPerfil(); // refrescar vista perfil si está visible
+});
+
+// Cargar unidades al mostrar ajustes
+function precargarAjustes() {
+  const data = userData || {};
+  const get = (id) => document.getElementById(id);
+  if (get('ajustes-input-nombre'))   get('ajustes-input-nombre').value   = data.nombre || '';
+  if (get('ajustes-input-email'))    get('ajustes-input-email').value    = data.email || '';
+  const nivelSelect = get('ajustes-input-nivel');
+  if (nivelSelect) nivelSelect.value = data.nivel_experiencia || 'Principiante';
+  if (get('ajustes-input-pass-actual'))  get('ajustes-input-pass-actual').value  = '';
+  if (get('ajustes-input-pass-nueva'))   get('ajustes-input-pass-nueva').value   = '';
+  if (get('ajustes-input-pass-repetir')) get('ajustes-input-pass-repetir').value = '';
+  ocultarErrorAjustes('ajustes-error-personal');
+  ocultarErrorAjustes('ajustes-error-seguridad');
+  cargarUnidades();
+}
+
+function ocultarErrorAjustes(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add('hidden');
+}
+function mostrarErrorAjustes(id, msg) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.classList.remove('hidden'); }
+}
 
 btnTabEntrenar?.addEventListener('click', () => {
   if (!entrenarView?.classList.contains('hidden')) return;

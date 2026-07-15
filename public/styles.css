@@ -2063,3 +2063,54 @@ LOGROS — Animación confetti y pop del modal
 #modal-logro-content {
   animation: logro-pop 0.4s ease-out forwards;
 }
+
+/* ============================================================
+   VISTA AJUSTES
+   ============================================================ */
+.ajustes-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.btn-ajustes-volver {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-ajustes-volver:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--text-primary);
+}
+
+.ajustes-titulo {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.ajustes-section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+}
+
+.ajustes-pass-hint {
+  color: #888;
+  font-weight: 400;
+  font-size: 0.72rem;
+}
+
+.ajustes-nota {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 10px;
+  font-style: italic;
+}

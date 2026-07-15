@@ -286,7 +286,117 @@
         </section>
 
         <!-- ============================================================
-        SECCIÓN: ZONA DE PELIGRO (Soft Delete de cuenta)
+        SECCIÓN: ZONA DE PELIGRO (Soft Delete de cuenta) — oculta,
+        visible solo para que btn-eliminar-cuenta exista en el DOM
+        ============================================================ -->
+        <section class="perfil-section" style="display:none;" aria-hidden="true">
+          <div class="danger-zone">
+            <h3 class="danger-title">🚨 Zona de Peligro</h3>
+            <p class="danger-desc">
+              Esta acción desactivará tu cuenta. Tus rutinas e historial se conservan,
+              pero no vas a poder iniciar sesión hasta que un administrador la reactive.
+            </p>
+            <button id="btn-eliminar-cuenta" class="btn-danger">Eliminar mi cuenta</button>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ============================================================
+      VISTA: AJUSTES (editar perfil, seguridad, unidades)
+      ============================================================ -->
+      <div id="ajustes-view" class="hidden">
+
+        <!-- Cabecera -->
+        <section class="perfil-section">
+          <div class="ajustes-header">
+            <button id="btn-volver-perfil" class="btn-ajustes-volver">← Volver al Perfil</button>
+            <h2 class="ajustes-titulo">⚙️ Ajustes</h2>
+          </div>
+        </section>
+
+        <!-- ============================================================
+        SECCIÓN 1: DATOS PERSONALES
+        ============================================================ -->
+        <section class="perfil-section">
+          <h3 class="ajustes-section-title">📋 Datos Personales</h3>
+
+          <div class="form-group">
+            <label class="form-label">Nombre</label>
+            <input type="text" id="ajustes-input-nombre" class="form-input" maxlength="50" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="ajustes-input-email" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nivel de experiencia</label>
+            <select id="ajustes-input-nivel" class="form-input">
+              <option value="Principiante">Principiante</option>
+              <option value="Intermedio">Intermedio</option>
+              <option value="Avanzado">Avanzado</option>
+            </select>
+          </div>
+
+          <div id="ajustes-error-personal" class="form-error hidden"></div>
+
+          <button class="btn btn-primary" id="btn-guardar-ajustes-personal" style="width:100%;">
+            Guardar Perfil
+          </button>
+        </section>
+
+        <!-- ============================================================
+        SECCIÓN 2: UNIDADES
+        ============================================================ -->
+        <section class="perfil-section">
+          <h3 class="ajustes-section-title">📏 Unidades</h3>
+
+          <div class="form-group">
+            <label class="form-label">Unidad de peso</label>
+            <select id="ajustes-unidad-peso" class="form-input">
+              <option value="kg">kg</option>
+              <option value="lbs">lbs</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Unidad de estatura</label>
+            <select id="ajustes-unidad-estatura" class="form-input">
+              <option value="cm">cm</option>
+              <option value="in">in</option>
+            </select>
+          </div>
+
+          <p class="ajustes-nota">Las unidades solo cambian la visualización. La base de datos siempre guarda en kg y cm.</p>
+        </section>
+
+        <!-- ============================================================
+        SECCIÓN 3: SEGURIDAD
+        ============================================================ -->
+        <section class="perfil-section">
+          <h3 class="ajustes-section-title">🔒 Seguridad</h3>
+
+          <div class="form-group">
+            <label class="form-label">Contraseña actual</label>
+            <input type="password" id="ajustes-input-pass-actual" class="form-input" autocomplete="current-password" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nueva contraseña <span class="ajustes-pass-hint">(mín. 8 caracteres, mayúscula, minúscula, número y carácter especial)</span></label>
+            <input type="password" id="ajustes-input-pass-nueva" class="form-input" autocomplete="new-password" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Repetir contraseña</label>
+            <input type="password" id="ajustes-input-pass-repetir" class="form-input" autocomplete="new-password" />
+          </div>
+
+          <div id="ajustes-error-seguridad" class="form-error hidden"></div>
+
+          <button class="btn btn-primary" id="btn-guardar-ajustes-seguridad" style="width:100%;">
+            Actualizar Contraseña
+          </button>
+        </section>
+
+        <!-- ============================================================
+        SECCIÓN 4: ELIMINAR CUENTA
         ============================================================ -->
         <section class="perfil-section">
           <div class="danger-zone">
@@ -295,7 +405,7 @@
               Esta acción desactivará tu cuenta. Tus rutinas e historial se conservan,
               pero no vas a poder iniciar sesión hasta que un administrador la reactive.
             </p>
-            <button id="btn-eliminar-cuenta" class="btn-danger">Eliminar mi cuenta</button>
+            <button id="btn-eliminar-ajustes" class="btn-danger">Eliminar mi cuenta</button>
           </div>
         </section>
 
