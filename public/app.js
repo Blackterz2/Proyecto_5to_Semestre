@@ -188,6 +188,214 @@ const LOGROS = [
 ];
 
 // ============================================================
+// PROGRAMA PRINCIPIANTE — 3 rutinas de adaptación (constantes del sistema)
+// ============================================================
+const PROGRAMA_PRINCIPIANTE = {
+  descripcion: `El programa de adaptación está diseñado para que tu cuerpo
+aprenda los movimientos básicos antes de aumentar la carga. Seguí el orden
+recomendado: Empuje → descanso → Tirón → descanso → Piernas → descanso.
+Podés hacer las rutinas en días distintos o adaptarlo a tu disponibilidad —
+la app es una guía, no una regla estricta.`,
+
+  descansoPosta: `⏱️ Descansá 2 a 3 minutos entre series y 3 a 4 minutos entre ejercicios.
+No apures el descanso — en esta etapa la recuperación es tan importante como el ejercicio.`,
+
+  notaEntrenador: `👨‍🏫 Si tenés entrenador, seguí sus recomendaciones de peso y técnica.
+Las sugerencias de esta app son un punto de partida aproximado.`,
+
+  notaPeso: `⚖️ Para el peso inicial: elegí un peso con el que puedas completar
+las repeticiones indicadas manteniendo buena técnica. Si llegás a las 12 reps
+con facilidad, subí el peso en tu próxima sesión. Si no llegás a 8 reps, bajalo.
+El peso correcto es el que te cuesta pero podés controlar.`,
+
+  rutinas: [
+    {
+      id: 'empuje',
+      nombre: 'Día 1 — Empuje',
+      emoji: '💪',
+      descripcion: 'Pecho, hombros y tríceps. Movimientos de empuje.',
+      musculos: 'Pecho · Hombros · Tríceps',
+      color: '#e94560',
+      ejercicios: [
+        {
+          nombre: 'Flexiones',
+          nombreDB: 'Flexiones',
+          tipo: 'calentamiento',
+          series: 2,
+          repeticiones: '15',
+          peso: 'Peso corporal',
+          instruccion: 'Calentamiento — activá pecho, hombros y tríceps. Controlá el movimiento, no apures.',
+        },
+        {
+          nombre: 'Press de banca',
+          nombreDB: 'Press de banca',
+          tipo: 'principal',
+          series: 3,
+          repeticiones: '10-12',
+          peso: 'Barra sola (20 kg) para empezar. Subí de a 2.5 kg cuando domines la técnica.',
+          instruccion: 'Tumbate en el banco, agarrá la barra al ancho de los hombros. Bajá hasta rozar el pecho y empujá hacia arriba de forma controlada.',
+        },
+        {
+          nombre: 'Press de hombros con mancuernas',
+          nombreDB: 'Press de hombros con mancuernas',
+          tipo: 'principal',
+          series: 3,
+          repeticiones: '10-12',
+          peso: 'Empezá con 4-6 kg por mancuerna. Subí cuando puedas completar 12 reps sin perder postura.',
+          instruccion: 'Sentado o parado, llevá las mancuernas a la altura de los hombros y empujá hacia arriba sin arquear la espalda.',
+        },
+        {
+          nombre: 'Aperturas en máquina',
+          nombreDB: 'Aperturas en máquina',
+          tipo: 'principal',
+          series: 3,
+          repeticiones: '10-12',
+          peso: 'Peso bajo para empezar (lo que marque la máquina como mínimo). Sentí el pecho trabajar.',
+          instruccion: 'Ajustá el asiento para que los mangos queden a la altura del pecho. Cerrá lentamente y volvé con control.',
+        },
+        {
+          nombre: 'Elevaciones laterales con mancuernas',
+          nombreDB: 'Elevaciones laterales con mancuernas',
+          tipo: 'principal',
+          series: 3,
+          repeticiones: '10-12',
+          peso: 'Empezá con 2-4 kg. Este ejercicio se siente con poco peso si se hace bien.',
+          instruccion: 'Parado, levantá los brazos hacia los lados hasta la altura del hombro con los codos ligeramente flexionados. Bajá con control.',
+        },
+        {
+          nombre: 'Jalones de tríceps en polea',
+          nombreDB: 'Jalones de tríceps en polea',
+          tipo: 'principal',
+          series: 3,
+          repeticiones: '10-12',
+          peso: 'Peso que permita extender el codo completamente sin mover el cuerpo.',
+          instruccion: 'Parado frente a la polea, pegá los codos al cuerpo y empujá la cuerda hacia abajo hasta extender los brazos. Volvé con control.',
+        },
+      ],
+    },
+    {
+      id: 'tiron',
+      nombre: 'Día 2 — Tirón',
+      emoji: '🏋️',
+      descripcion: 'Espalda y bíceps. Movimientos de tracción.',
+      musculos: 'Espalda · Bíceps · Hombro posterior',
+      color: '#6c63ff',
+      ejercicios: [
+        {
+          nombre: 'Dominadas agarre neutro',
+          nombreDB: 'Dominadas agarre neutro',
+          tipo: 'calentamiento',
+          series: 2,
+          repeticiones: '15',
+          peso: 'Peso corporal',
+          instruccion: 'Calentamiento — si no podés hacer dominadas, hacé el movimiento en máquina asistida o jalones con poco peso.',
+        },
+        {
+          nombre: 'Jalón dorsal',
+          nombreDB: 'Jalón dorsal',
+          tipo: 'principal',
+          series: 3,
+          repeticiones: '10-12',
+          peso: 'Empezá con un peso que puedas bajar hasta el pecho sin balancear el torso.',
+          instruccion: 'Sentado, agarrá la barra al ancho de los hombros. Jalá hacia el pecho llevando los codos hacia abajo y atrás. Volvé con control.',
+        },
+        {
+          nombre: 'Remo en polea sentado',
+          nombreDB: 'Remo en polea sentado',
+          tipo: 'principal',
+          series: 3,
+          repeticiones: '10-12',
+          peso: 'Peso moderado — sentí la espalda media trabajar, no los brazos.',
+          instruccion: 'Sentado, agarrá el agarre en V. Jalá hacia el abdomen llevando los codos atrás y apretando la espalda al final del movimiento.',
+        },
+        {
+          nombre: 'Encogimientos con mancuernas',
+          nombreDB: 'Encogimientos con mancuernas',
+          tipo: 'principal',
+          series: 3,
+          repeticiones: '10-12',
+          peso: 'Empezá con 8-12 kg por mancuerna. Subí de a 2 kg.',
+          instruccion: 'Parado con mancuernas a los lados, subí los hombros hacia las orejas y mantenelos arriba 1 segundo. Bajá lentamente.',
+        },
+        {
+          nombre: 'Curl con mancuernas agarre martillo',
+          nombreDB: 'Curl con mancuernas agarre martillo',
+          tipo: 'principal',
+          series: 3,
+          repeticiones: '10-12',
+          peso: 'Empezá con 4-6 kg. Los pulgares apuntan al techo durante todo el movimiento.',
+          instruccion: 'Parado, con las palmas enfrentadas, flexioná el codo subiendo la mancuerna. No balancees el cuerpo. Bajá con control.',
+        },
+        {
+          nombre: 'Remo con mancuerna',
+          nombreDB: 'Remo con mancuerna',
+          tipo: 'principal',
+          series: 3,
+          repeticiones: '10-12',
+          peso: 'Empezá con 6-10 kg. Controlá que el movimiento lo haga la espalda, no el brazo.',
+          instruccion: 'Apoyá una rodilla y mano en el banco. Con la otra mano jalá la mancuerna hacia la cadera llevando el codo hacia el techo.',
+        },
+      ],
+    },
+    {
+      id: 'piernas',
+      nombre: 'Día 3 — Piernas',
+      emoji: '🦵',
+      descripcion: 'Cuádriceps, isquiotibiales, glúteos y gemelos.',
+      musculos: 'Cuádriceps · Isquiotibiales · Glúteos · Gemelos',
+      color: '#00d2aa',
+      ejercicios: [
+        {
+          nombre: 'Sentadilla con el peso corporal',
+          nombreDB: 'Sentadilla con el peso corporal',
+          tipo: 'calentamiento',
+          series: 2,
+          repeticiones: '15',
+          peso: 'Peso corporal',
+          instruccion: 'Calentamiento — activá cuádriceps, glúteos y caderas. Bajá hasta que los muslos queden paralelos al piso.',
+        },
+        {
+          nombre: 'Prensa inclinada',
+          nombreDB: 'Prensa inclinada',
+          tipo: 'principal',
+          series: 3,
+          repeticiones: '10-12',
+          peso: 'Empezá con el peso de la máquina vacía. Aprendé la técnica antes de agregar discos.',
+          instruccion: 'Ajustá el respaldo. Colocá los pies al ancho de los hombros en la plataforma. Bajá hasta 90° de rodilla y empujá sin bloquear las rodillas arriba.',
+        },
+        {
+          nombre: 'Curl femoral tumbado',
+          nombreDB: 'Curl femoral tumbado',
+          tipo: 'principal',
+          series: 3,
+          repeticiones: '10-12',
+          peso: 'Peso ligero para empezar — el músculo femoral suele ser más débil en principiantes.',
+          instruccion: 'Tumbado boca abajo en la máquina, flexioná las rodillas llevando los talones hacia los glúteos. Volvé con control.',
+        },
+        {
+          nombre: 'Extensión de piernas',
+          nombreDB: 'Extensión de piernas',
+          tipo: 'principal',
+          series: 3,
+          repeticiones: '10-12',
+          peso: 'Peso moderado — no bloquees la rodilla al extender.',
+          instruccion: 'Sentado en la máquina, extendé las piernas hasta casi llegar a la posición recta. Bajá lentamente sin soltar el peso.',
+        },
+        {
+          nombre: 'Gemelo en máquina de pie',
+          nombreDB: 'Gemelo en máquina de pie',
+          tipo: 'principal',
+          series: 3,
+          repeticiones: '10-12',
+          peso: 'Empezá con poco peso — los gemelos se trabajan mejor con rango completo de movimiento.',
+          instruccion: 'Colocá los hombros bajo los apoyos. Subí en puntas de pie lo más alto posible, mantenelo 1 segundo y bajá hasta sentir el estiramiento.',
+        },
+      ],
+    },
+  ],
+};
+
+// ============================================================
 // CSS DEL TOUR (inyectado dinámicamente)
 // ============================================================
 const tourCSS = `

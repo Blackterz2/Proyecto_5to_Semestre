@@ -33,6 +33,7 @@
 24. [Resumen de APIs](#24-resumen-de-apis)
 25. [Auditoría y Limpieza de Columnas](#25-auditoría-y-limpieza-de-columnas-enfoque-híbrido)
 26. [Refactor UI Botones de Rutina](#26-refactor-ui-botones-de-rutina)
+27. [Hito 18 — Programa Principiante (Constante del Sistema)](#27-hito-18--programa-principiante-constante-del-sistema)
 
 ---
 
@@ -2197,6 +2198,60 @@ Se inserta en `cargarRutina()` y `crearCardEjercicioExtra()` entre el `seriesInp
 | Archivo | Cambio |
 |---------|--------|
 | `public/app.js` | Bloque descanso en 2 funciones + función `iniciarDescanso()` + listener check-serie + cleanup + tour step |
+
+---
+
+## 27. Hito 18 — Programa Principiante (Constante del Sistema)
+
+### Objetivo
+
+Definir la constante `PROGRAMA_PRINCIPIANTE` en `public/app.js` con las 3 rutinas de adaptación para usuarios nuevos.
+
+### Diseño
+
+- **Constante inmutable**: el usuario no puede editarla ni eliminarla
+- **No se guarda en BD**: las rutinas son datos del sistema, no del usuario
+- **`nombreDB`**: cada ejercicio tiene un campo `nombreDB` que coincide exactamente con el nombre en la tabla `ejercicios` de la BD, para poder buscar su imagen/video
+
+### Estructura
+
+```
+PROGRAMA_PRINCIPIANTE
+├── descripcion (string)
+├── descansoPosta (string)
+├── notaEntrenador (string)
+├── notaPeso (string)
+└── rutinas[]
+    ├── id: 'empuje'    → Día 1 — Empuje (6 ejercicios)
+    ├── id: 'tiron'     → Día 2 — Tirón (6 ejercicios)
+    └── id: 'piernas'   → Día 3 — Piernas (5 ejercicios)
+```
+
+### Ejercicios por rutina
+
+| Rutina | Ejercicios |
+|--------|------------|
+| Empuje | Flexiones, Press de banca, Press de hombros con mancuernas, Aperturas en máquina, Elevaciones laterales con mancuernas, Jalones de tríceps en polea |
+| Tirón | Dominadas agarre neutro, Jalón dorsal, Remo en polea sentado, Encogimientos con mancuernas, Curl con mancuernas agarre martillo, Remo con mancuerna |
+| Piernas | Sentadilla con el peso corporal, Prensa inclinada, Curl femoral tumbado, Extensión de piernas, Gemelo en máquina de pie |
+
+### Campos por ejercicio
+
+| Campo | Descripción |
+|-------|-------------|
+| `nombre` | Nombre para mostrar al usuario |
+| `nombreDB` | Nombre exacto en la BD (para buscar imagen/video) |
+| `tipo` | `'calentamiento'` o `'principal'` |
+| `series` | Cantidad de series |
+| `repeticiones` | Rango de repeticiones (string) |
+| `peso` | Sugerencia de peso inicial |
+| `instruccion` | Instrucción técnica de ejecución |
+
+### Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/app.js` | Nueva constante `PROGRAMA_PRINCIPIANTE` (líneas 190-396, entre LOGROS y tourCSS) |
 
 ---
 
