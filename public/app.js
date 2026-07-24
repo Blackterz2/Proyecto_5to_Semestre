@@ -3157,7 +3157,259 @@ function mostrarVistaProgramaPrincipiante() {
 }
 
 function iniciarSesionAdaptacion(rutinaId) {
-  mostrarToast(`Iniciando sesión de ${rutinaId}... (próximo hito)`, 'success');
+  const rutina = PROGRAMA_PRINCIPIANTE.rutinas.find(r => r.id === rutinaId);
+  if (!rutina) return;
+
+  crearVistaSesionAdaptacion(rutina);
+  mostrarVistaSesionAdaptacion();
+}
+
+// ============================================================
+// PASO 1 — crearVistaSesionAdaptacion(rutina)
+// ============================================================
+
+function crearVistaSesionAdaptacion(rutina) {
+  // Siempre recrear la vista con la rutina nueva
+  const existente = document.getElementById('sesion-adaptacion-view');
+  if (existente) existente.remove();
+
+  const vista = document.createElement('div');
+  vista.id = 'sesion-adaptacion-view';
+  vista.className = 'hidden';
+  vista.style.cssText = 'padding: 0 16px 100px;';
+
+  vista.innerHTML = `
+    <!-- Header -->
+    <div style="
+      display:flex; align-items:center; gap:12px;
+      margin-bottom:20px; padding-top:16px;
+    ">
+      <button id="btn-volver-sesion-adaptacion" style="
+        background:transparent; border:none;
+        color:var(--text-secondary); cursor:pointer;
+        font-size:14px; padding:0;
+      ">← Volver</button>
+      <div>
+        <h2 style="margin:0; font-size:19px; font-weight:700;">
+          ${rutina.emoji} ${rutina.nombre}
+        </h2>
+        <div style="font-size:12px; opacity:0.5; margin-top:2px;">
+          ${rutina.musculos}
+        </div>
+      </div>
+    </div>
+
+    <!-- Timer de sesión -->
+    <div style="
+      display:flex; align-items:center; justify-content:center;
+      gap:8px; margin-bottom:20px; font-size:22px; font-weight:700;
+      color:var(--text-secondary);
+    ">
+      <span>⏱️</span>
+      <span id="adaptacion-timer-display">00:00</span>
+    </div>
+
+    <!-- Nota de descanso -->
+    <div style="
+      background:rgba(108,99,255,0.08); border:1px solid rgba(108,99,255,0.2);
+      border-radius:10px; padding:12px 16px; margin-bottom:20px;
+      font-size:13px; color:var(--text-secondary); line-height:1.4;
+    ">
+      ${PROGRAMA_PRINCIPIANTE.descansoPosta}
+    </div>
+
+    <!-- Ejercicios -->
+    <div id="adaptacion-ejercicios-container" style="
+      display:flex; flex-direction:column; gap:16px;
+    ">
+      ${rutina.ejercicios.map((ej, idx) => `
+        <div class="adaptacion-ejercicio-card" data-ejercicio-idx="${idx}" style="
+          background:var(--bg-card);
+          border:1px solid var(--border);
+          border-radius:14px;
+          overflow:hidden;
+        ">
+          <!-- Cabecera del ejercicio -->
+          <div style="padding:16px 16px 12px; display:flex; gap:12px; align-items:flex-start;">
+            <div style="
+              background:${rutina.color}22;
+              color:${rutina.color};
+              border-radius:8px;
+              width:32px; height:32px;
+              display:flex; align-items:center; justify-content:center;
+              font-size:13px; font-weight:700; flex-shrink:0;
+            ">${idx + 1}</div>
+            <div style="flex:1;">
+              <div style="font-size:15px; font-weight:700; margin-bottom:2px;">
+                ${ej.nombre}
+              </div>
+              <div style="font-size:11px; opacity:0.5; margin-bottom:6px;">
+                ${ej.tipo === 'calentamiento'
+                  ? '🔥 Calentamiento — Peso corporal'
+                  : `${ej.series} series × ${ej.repeticiones} repeticiones`}
+              </div>
+              <div style="
+                font-size:12px; color:var(--text-secondary);
+                background:rgba(255,255,255,0.04);
+                border-radius:6px; padding:8px 10px;
+                line-height:1.5;
+              ">
+                💡 <strong>Peso sugerido:</strong> ${ej.peso}
+              </div>
+            </div>
+          </div>
+
+          <!-- Instrucción técnica -->
+          <div style="
+            padding:0 16px 12px;
+            font-size:12px; color:var(--text-secondary);
+            line-height:1.6; border-top:1px solid rgba(255,255,255,0.05);
+            padding-top:10px; margin-top:0;
+          ">
+            📋 ${ej.instruccion}
+          </div>
+
+          <!-- Series -->
+          <div style="padding:0 16px 16px;">
+            ${Array.from({length: ej.series}, (_, s) => `
+              <div class="adaptacion-serie-row" data-serie="${s + 1}" style="
+                display:flex; align-items:center; gap:10px;
+                padding:8px 0;
+                border-top:1px solid rgba(255,255,255,0.04);
+              ">
+                <span style="
+                  font-size:12px; opacity:0.5;
+                  min-width:50px;
+                ">Serie ${s + 1}</span>
+                <span style="font-size:12px; opacity:0.6; min-width:60px;">
+                  ${ej.repeticiones} reps
+                </span>
+                <span style="font-size:12px; opacity:0.5; flex:1;">
+                  ${ej.tipo === 'calentamiento' ? 'Peso corporal' : 'Peso libre'}
+                </span>
+                <input
+                  type="checkbox"
+                  class="adaptacion-check-serie"
+                  data-ejercicio="${idx}"
+                  data-serie="${s}"
+                  style="width:18px; height:18px; cursor:pointer; accent-color:${rutina.color};"
+                />
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <!-- Acciones finales -->
+    <div style="
+      position:fixed; bottom:0; left:0; right:0;
+      background:var(--bg-secondary);
+      border-top:1px solid var(--border);
+      padding:12px 16px;
+      display:flex; gap:10px;
+      z-index:100;
+    ">
+      <button id="adaptacion-btn-cancelar" class="btn-logout" style="flex:1;">
+        Cancelar
+      </button>
+      <button id="adaptacion-btn-finalizar" class="btn-login" style="flex:2;">
+        💾 Finalizar entrenamiento
+      </button>
+    </div>
+  `;
+
+  const rutinasView = document.getElementById('rutinas-view');
+  rutinasView?.parentNode?.insertBefore(vista, rutinasView);
+
+  // Iniciar timer de sesión
+  iniciarTimerAdaptacion();
+
+  // Listeners internos
+  vista.querySelector('#btn-volver-sesion-adaptacion')
+    ?.addEventListener('click', () => {
+      confirmarAccion({
+        titulo: '¿Salir de la sesión?',
+        mensaje: 'Tu progreso no se guardará. El entrenamiento quedará activo y podés volver cuando quieras.',
+        textoBtnConfirmar: 'Salir',
+        colorBtn: 'btn-logout',
+        onConfirmar: () => {
+          document.getElementById('sesion-adaptacion-view')?.classList.add('hidden');
+          mostrarVistaProgramaPrincipiante();
+        }
+      });
+    });
+
+  vista.querySelector('#adaptacion-btn-cancelar')
+    ?.addEventListener('click', () => {
+      confirmarAccion({
+        titulo: '⚠️ Cancelar entrenamiento',
+        mensaje: 'Se descartará esta sesión y no se guardará en tu historial.',
+        textoBtnConfirmar: 'Sí, cancelar',
+        colorBtn: 'btn-logout',
+        onConfirmar: cancelarSesionAdaptacion
+      });
+    });
+
+  vista.querySelector('#adaptacion-btn-finalizar')
+    ?.addEventListener('click', finalizarSesionAdaptacion);
+}
+
+// ============================================================
+// PASO 2 — Timer de la sesión
+// ============================================================
+
+let adaptacionTimerInterval = null;
+let adaptacionSegundos = 0;
+
+function iniciarTimerAdaptacion() {
+  clearInterval(adaptacionTimerInterval);
+  adaptacionSegundos = 0;
+  adaptacionTimerInterval = setInterval(() => {
+    adaptacionSegundos++;
+    const m = Math.floor(adaptacionSegundos / 60);
+    const s = adaptacionSegundos % 60;
+    const display = document.getElementById('adaptacion-timer-display');
+    if (display) {
+      display.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+  }, 1000);
+}
+
+function detenerTimerAdaptacion() {
+  clearInterval(adaptacionTimerInterval);
+  adaptacionTimerInterval = null;
+}
+
+// ============================================================
+// PASO 3 — mostrarVistaSesionAdaptacion()
+// ============================================================
+
+function mostrarVistaSesionAdaptacion() {
+  document.getElementById('rutinas-view')?.classList.add('hidden');
+  document.getElementById('perfil-view')?.classList.add('hidden');
+  document.getElementById('entrenar-view')?.classList.add('hidden');
+  document.getElementById('ajustes-view')?.classList.add('hidden');
+  document.getElementById('programa-principiante-view')?.classList.add('hidden');
+  document.getElementById('sesion-adaptacion-view')?.classList.remove('hidden');
+}
+
+// ============================================================
+// PASO 4 — Placeholders para 3B
+// ============================================================
+
+function cancelarSesionAdaptacion() {
+  detenerTimerAdaptacion();
+  document.getElementById('sesion-adaptacion-view')?.remove();
+  mostrarApp();
+  mostrarVistaRutinas();
+  cargarRutinasUsuario();
+  mostrarToast('Sesión cancelada', 'error');
+}
+
+function finalizarSesionAdaptacion() {
+  // Se implementa en 3B — guardado en historial + limpieza
+  mostrarToast('Guardando sesión... (próximo hito)', 'success');
 }
 
 // ============================================================
