@@ -468,6 +468,595 @@ const panelDetalleBack   = document.getElementById('panel-detalle-back');
 // hace clic en una rutina del dashboard.
 let rutinaActualId = null;
 
+// ============================================================
+// ADAPTACIÓN — Sesión de Programa Principiante
+// ===========================================================
+// Constantes para localStorage
+// ============================================================
+const ADAPTACION_STORAGE_KEY = 'adaptacion_sesion_activa';
+
+// Temporizador para adaptación
+let timerAdaptacion = null;
+let adaptacionSegundos = 0;
+let tiempoInicioAdaptacion = null;
+
+// ============================================================
+// API DE ADAPTACIÓN (reutiliza misma lógica del sistema de entrenar)
+// ===========================================================
+
+function iniciarTimerAdaptacion() {
+  detenerTimerAdaptacion();
+  
+  adaptacionSegundos = 0;
+  tiempoInicioAdaptacion = Date.now();
+  
+  timerAdaptacion = setInterval(() => {
+    adaptacionSegundos = Math.floor((Date.now() - tiempoInicioAdaptacion) / 1000);
+  }, 1000);
+}
+
+function detenerTimerAdaptacion() {
+  if (timerAdaptacion) {
+    clearInterval(timerAdaptacion);
+    timerAdaptacion = null;
+  }
+}
+
+function formatearTiempoAdaptacion(segundos) {
+  const m = String(Math.floor(segundos / 60)).padStart(2, '0');
+  const s = String(segundos % 60).padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+// ============================================================
+// Funciones principales de control de sesión de adaptación
+// ============================================================
+
+async function iniciarSesionAdaptacion(rutinaId) {
+  try {
+    // Guardar en localStorage que hay una sesión activa
+    localStorage.setItem(ADAPTACION_STORAGE_KEY, JSON.stringify({
+      rutinaId,
+      inicio: new Date().toISOString(),
+    }));
+
+    const rutina = PROGRAMA_PRINCIPIANTE.rutinas.find(r => r.id === rutinaId);
+    if (!rutina) {
+      console.error('Rutina no encontrada:', rutinaId);
+      return;
+    }
+
+    // Crear vista de sesión de adaptación usando mismo patrón que cargarRutina
+    await crearVistaSesionAdaptacion(rutina);
+    mostrarVistaSesionAdaptacion();
+    
+    // Iniciar temporizador de adaptación
+    iniciarTimerAdaptacion();
+    
+    // Mostrar toast de bienvenida (sin ticker)
+    mostrarToast('Sesión de adaptación iniciada', 'success');
+    
+    // Limpiar estado de entrenamiento normal (para no confundir)
+    // (opcional: si queremos mantener ambos sistemas)
+    detenerTemporizador(); // Detener temporizador del sistema de entrenar
+    
+  } catch (error) {
+    console.error('Error al iniciar sesión de adaptación:', error);
+    mostrarToast('Error al iniciar sesión', 'error');
+  }
+}
+
+function cancelarSesionAdaptacion() {
+  try {
+    detenerTimerAdaptacion();
+    localStorage.removeItem(ADAPTACION_STORAGE_KEY);
+    ocultarBotonFlotanteAdaptacion();
+    
+    const vista = document.getElementById('sesion-adaptacion-view');
+    if (vista) {
+      vista.remove();
+    }
+    
+    mostrarApp();
+    mostrarVistaRutinas();
+    cargarRutinasUsuario();
+    
+    mostrarToast('Sesión de adaptación cancelada', 'error');
+    
+  } catch (error) {
+    console.error('Error al cancelar sesión de adaptación:', error);
+  }
+}
+
+async function finalizarSesionAdaptacion() {
+  try {
+    // Obtener estado de la sesión desde localStorage
+    const estado = localStorage.getItem(ADAPTACION_STORAGE_KEY);
+    if (!estado) {
+      mostrarToast('No hay sesión activa para finalizar', 'error');
+      return;
+    }
+
+    const estadoParsed = JSON.parse(estado);
+    const rutina = PROGRAMA_PRINCIPIANTE.rutinas.find(r => r.id === estadoParsed.rutinaId);
+    if (!rutina) {
+      mostrarToast('Rutina no encontrada', 'error');
+      return;
+    }
+
+    // Obtener los checkboxes de series de ejercicios desde el DOM
+    const rutinasEjercicios = rutina.ejercicios;
+    const seriesFinalizadas = [];
+
+    for (let ejIndex = 0; ejIndex < rutinasEjercicios.length; ejIndex++) {
+      const rutinaEjercicio = rutinasEjercicios[ejIndex];
+      const checkIndex = ejIndex; // Como las series están mapeadas por índice de ejercicio
+
+      // Buscar el checkbox de la serie correspondiente
+      const checkSelector = `.adaptacion-check-serie[data-ejercicio=\"${ejIndex}\"]`;
+      const checkbox = document.querySelector(checkSelector);
+
+      const seriesData = {
+        ejercicio_id: null, // Se actualizará con el fetch real más adelante
+        nombre: rutinaEjercicio.nombre,
+        nombreDB: rutinaEjercicio.nombreDB,
+        series: Array.from({ length: rutinaEjercicio.series || 3 }, (_, sIndex) => {
+          const estaCompletada = sIndex === 0 ? (checkbox?.checked ? 1 : 0) : 0;
+          return {
+            numero_serie: sIndex + 1,
+            repeticiones: parseInt(rutinaEjercicio.repeticiones) || 10,
+            peso: 0,
+            completada: estaCompletada,
+          };
+        }),
+      };
+
+      seriesFinalizadas.push(seriesData);
+    }
+
+    // Obtener IDs de ejercicios del catálogo para enviar al backend
+    let catalogoEjercicios = [];
+    try {
+      const token = getToken();
+      if (token) {
+        const response = await fetch('/api/ejercicios', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          catalogoEjercicios = data.data || [];
+        }
+      }
+    } catch (catalogError) {
+      console.error('Error al cargar catálogo de ejercicios:', catalogError);
+    }
+
+    // Mapear nombres de ejercicios a IDs
+    const seriesConIds = seriesFinalizadas.map(ej => {
+      const ejercicioEncontrado = catalogoEjercicios.find(e => e.nombre === ej.nombreDB);
+      return {
+        ...ej,
+        ejercicio_id: ejercicioEncontrado?.id || null,
+      };
+    });
+
+    // Preparar payload para POST /api/sesiones
+    const payload = {
+      rutina_id: null, // Mantener null para mantener compatibilidad con backend
+      fecha: new Date().toISOString().split('T')[0],
+      duracion_minutos: Math.round(adaptacionSegundos / 60) || 1,
+      notas: `Sesión de adaptación — ${rutina.nombre || 'Programa Principiante'}',
+      ejercicios: seriesConIds.map(ej => ({
+        ejercicio_id: ej.ejercicio_id,
+        series: ej.series,
+      })),
+    };
+
+    // Enviar al backend
+    const token = getToken();
+    if (!token) {
+      mostrarToast('No hay token de autenticación', 'error');
+      return;
+    }
+
+    const response = await fetch('/api/sesiones', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log('Sesión guardada:', result);
+
+    // Limpiar estado de sesión de adaptación
+    detenerTimerAdaptacion();
+    localStorage.removeItem(ADAPTACION_STORAGE_KEY);
+    ocultarBotonFlotanteAdaptacion();
+
+    const vista = document.getElementById('sesion-adaptacion-view');
+    if (vista) {
+      vista.remove();
+    }
+
+    mostrarApp();
+    mostrarVistaRutinas();
+    cargarRutinasUsuario();
+
+    mostrarToast(`✅ Sesión de ${rutina.nombre || 'Programa Principiante'} guardada`, 'success');
+
+  } catch (error) {
+    console.error('Error al finalizar sesión de adaptación:', error);
+    mostrarToast(`Error al guardar sesión: ${error.message}`, 'error');
+  }
+}
+
+function ocultarBotonFlotanteAdaptacion() {
+  const btn = document.getElementById('btn-flotante-adaptacion');
+  if (btn) btn.style.display = 'none';
+}
+
+function mostrarBotónFlotanteAdaptacion() {
+  const btn = document.getElementById('btn-flotante-adaptacion');
+  if (btn) btn.style.display = 'block';
+}
+
+// ============================================================
+// Funcionamiento del botón flotante para adaptación
+// ============================================================
+function mostrarVistaSesionAdaptacion() {
+  const vista = document.getElementById('sesion-adaptacion-view');
+  if (vista) {
+    vista.classList.remove('hidden');
+    vista.style.display = 'block';
+  }
+}
+
+function ocultarVistaSesionAdaptacion() {
+  const vista = document.getElementById('sesion-adaptacion-view');
+  if (vista) {
+    vista.classList.add('hidden');
+    vista.style.display = 'none';
+  }
+}
+
+// ============================================================
+// Crear vista de sesión de adaptación (reutiliza patrón de cargarRutina)
+// ============================================================
+async function crearVistaSesionAdaptacion(rutina) {
+  try {
+    // Usar mismo patrón que cargarRutina para crear vista de ejercicios
+    const contenedor = document.getElementById('contenedor-ejercicios');
+    if (!contenedor) return;
+
+    // Resetear contenedor
+    contenedor.innerHTML = '';
+
+    // Establecer rutina actual
+    rutinaActualId = rutina.id;
+
+    // Limpiar ejercicios extra
+    window.ejerciciosExtraIds = [];
+
+    // Limpiar series guardadas de entrenamiento normal
+    localStorage.removeItem('entrenamiento_draft');
+
+    // Mostrar UI de entrenamiento
+    if (tituloEl) {
+      if (nombreEl) nombreEl.textContent = rutina.nombre;
+      if (descripcionEl) descripcionEl.textContent = rutina.descripcion;
+    }
+
+    // Mostrar botones de acción
+    if (accionesEntreno) accionesEntreno.classList.remove('hidden');
+    if (btnFinalizar) btnFinalizar.classList.remove('hidden');
+
+    // Mostrar timer de adaptación
+    if (temporizadorEl) {
+      temporizadorEl.classList.remove('hidden');
+      actualizarDisplayTemporizadorAdaptacion();
+    }
+
+    // Crear cards de ejercicios usando mismo patrón que cargarRutina
+    const ejerciciosParaMostrar = rutina.ejercicios || [];
+
+    for (const ejercicio of ejerciciosParaMostrar) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.dataset.ejercicioId = ejercicio.id;
+
+      const esCalentamiento = ejercicio.tipo === 'calentamiento';
+      const seriesCount = ejercicio.series || 3;
+
+      card.innerHTML = `
+        <div class="card-header">
+          <h3 class="card-title">${ejercicio.nombre}</h3>
+          ${esCalentamiento ? '<span class="badge-calentamiento">🔥 Calentamiento</span>' : ''}
+          <button class="btn-toggle-series" aria-label="Mostrar/ocultar series">▼</button>
+        </div>
+        <div class="series-container">
+          ${generarHTMLSeriesAdaptacion(ejercicio, seriesCount)}
+        </div>
+      `;
+
+      contenedor.appendChild(card);
+
+      // Reinyectar anteriores si hay (Hito 16)
+      if (ultimaSesionData) {
+        inyectarAnteriorEnCards();
+      }
+    }
+
+    // Guardar estado en localStorage para sesión de adaptación
+    localStorage.setItem(ADAPTACION_STORAGE_KEY, JSON.stringify({
+      rutinaId: rutina.id,
+      inicio: new Date().toISOString(),
+      rutina: rutina,
+    }));
+
+    // Llamar a guardarEstadoEntrenamiento para compatibilidad
+    guardarEstadoEntrenamiento();
+
+    // Iniciar temporizador
+    if (timerDisplay) {
+      timerDisplay.textContent = formatearTiempoAdaptacion(adaptacionSegundos);
+    }
+
+  } catch (error) {
+    console.error('Error al crear vista de adaptación:', error);
+  }
+}
+
+function generarHTMLSeriesAdaptacion(ejercicio, seriesCount) {
+  let html = '';
+
+  for (let i = 0; i < seriesCount; i++) {
+    const serieNum = i + 1;
+    const repeticiones = typeof ejercicio.repeticiones === 'string' 
+      ? ejercicio.repeticiones.replace(/[^0-9-]+/g, '').split('-')[0] || ejercicio.repeticiones
+      : ejercicio.repeticiones || 10;
+
+    html += `
+      <div class="serie-row" data-serie="${serieNum}">
+        <span class="serie-label">Serie ${serieNum}</span>
+        <div class="serie-inputs">
+          <div class="input-group">
+            <label>Rep</label>
+            <input type="number" class="input-serie" placeholder="10" data-campo="repeticiones" value="${repeticiones}">
+          </div>
+          <div class="input-group">
+            <label>Peso</label>
+            <input type="number" class="input-serie" placeholder="0" data-campo="peso" min="0" step="0.5" value="0">
+          </div>
+          <div class="input-group check-completada">
+            <label>
+              <input type="checkbox" class="check-serie adaptacion-check-serie" data-ejercicio="${ejercicio.id}" data-serie="${serieNum}" ${i === 0 ? 'checked' : ''}>
+              Completada
+            </label>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  return html;
+}
+
+function actualizarDisplayTemporizadorAdaptacion() {
+  if (timerDisplay) {
+    timerDisplay.textContent = formatearTiempoAdaptacion(adaptacionSegundos);
+  }
+}
+
+// ============================================================
+// Integración con vistas existentes y eventos globales
+// ============================================================
+
+// Eventos globales para botón flotante de adaptación
+function setupAdaptacionEvents() {
+  // Escuchar clicks en documento para delegation (event delegation)
+  document.addEventListener('click', function(e) {
+    const target = e.target;
+
+    // Manejar click del botón flotante de adaptación
+    if (target.closest('#btn-flotante-adaptacion button')) {
+      e.preventDefault();
+      const estado = localStorage.getItem(ADAPTACION_STORAGE_KEY);
+      if (!estado) return;
+
+      const { rutinaId } = JSON.parse(estado);
+      const rutina = PROGRAMA_PRINCIPIANTE.rutinas.find(r => r.id === rutinaId);
+      if (!rutina) return;
+
+      const vistaExistente = document.getElementById('sesion-adaptacion-view');
+      if (vistaExistente) {
+        // Si ya existe la vista, mostrarla y reiniciar timer si está detenido
+        mostrarVistaSesionAdaptacion();
+        if (!timerAdaptacion) {
+          iniciarTimerAdaptacion();
+        }
+      } else {
+        // Si no existe, crearla desde cero
+        crearVistaSesionAdaptacion(rutina);
+        mostrarVistaSesionAdaptacion();
+        iniciarTimerAdaptacion();
+      }
+
+      ocultarBotonFlotanteAdaptacion();
+      return;
+    }
+
+    // Manejar click en botón de cancelar adaptación (si está en DOM)
+    if (target.id === 'adaptacion-btn-cancelar') {
+      e.preventDefault();
+      cancelarSesionAdaptacion();
+      return;
+    }
+
+    // Manejar click en botón de finalizar adaptación (si está en DOM)
+    if (target.id === 'adaptacion-btn-finalizar') {
+      e.preventDefault();
+      finalizarSesionAdaptacion();
+      return;
+    }
+
+    // Manejar cambio en checkboxes de adaptación
+    if (target.classList.contains('adaptacion-check-serie')) {
+      // Guardar estado automáticamente cuando cambian los checkboxes
+      guardarEstadoSesionAdaptacion();
+    }
+  });
+}
+
+function guardarEstadoSesionAdaptacion() {
+  const estado = localStorage.getItem(ADAPTACION_STORAGE_KEY);
+  if (!estado) return;
+
+  const estadoParsed = JSON.parse(estado);
+  
+  // Recopilar datos de los checkboxes de adaptación
+  const checkboxes = document.querySelectorAll('.adaptacion-check-serie:checked');
+  const completadas = Array.from(checkboxes).map(cb => {
+    const ejercicioId = cb.dataset.ejercicio;
+    const serie = cb.dataset.serie;
+    return {
+      ejercicioId,
+      serie,
+      completada: true,
+    };
+  });
+
+  // Actualizar estado con array de progreso
+  estadoParsed.progreso = completadas;
+  localStorage.setItem(ADAPTACION_STORAGE_KEY, JSON.stringify(estadoParsed));
+}
+
+function restaurarSesionAdaptacion() {
+  const estado = localStorage.getItem(ADAPTACION_STORAGE_KEY);
+  if (!estado) return null;
+
+  try {
+    return JSON.parse(estado);
+  } catch (error) {
+    console.error('Error al restaurar sesión de adaptación:', error);
+    localStorage.removeItem(ADAPTACION_STORAGE_KEY);
+    return null;
+  }
+}
+
+// ============================================================
+// Inicialización: configurar eventos y estado inicial
+// ============================================================
+function initAdaptacionSistema() {
+  setupAdaptacionEvents();
+  
+  // Verificar si hay sesión de adaptación activa y mostrar botón flotante si es necesario
+  const estado = localStorage.getItem(ADAPTACION_STORAGE_KEY);
+  if (estado && !document.getElementById('sesion-adaptacion-view')) {
+    // Hay una sesión activa pero no está visible
+    mostrarBotónFlotanteAdaptacion();
+  }
+}
+
+// ============================================================
+// Integrar con sistema de navegación existente (rutinas, perfil, etc.)
+// ============================================================
+function mostrarBotónFlotanteAdaptacionSiCorresponde() {
+  const estado = localStorage.getItem(ADAPTACION_STORAGE_KEY);
+  if (estado && !document.getElementById('sesion-adaptacion-view')) {
+    mostrarBotónFlotanteAdaptacion();
+  } else {
+    ocultarBotonFlotanteAdaptacion();
+  }
+}
+
+// Reemplazar algunas funciones existentes con versiones que soporte adaptación
+// (estas modificaciones son menores y mantienen compatibilidad)
+const originalMostrarVistaRutinas = mostrarVistaRutinas;
+const originalMostrarVistaPerfilHistorial = mostrarVistaPerfilHistorial;
+const originalMostrarVistaEntrenar = mostrarVistaEntrenar;
+
+function mostrarVistaRutinas() {
+  originalMostrarVistaRutinas();
+  mostrarBotónFlotanteAdaptacionSiCorresponde();
+}
+
+function mostrarVistaPerfilHistorial() {
+  originalMostrarVistaPerfilHistorial();
+  mostrarBotónFlotanteAdaptacionSiCorresponde();
+}
+
+function mostrarVistaEntrenar() {
+  originalMostrarVistaEntrenar();
+  mostrarBotónFlotanteAdaptacionSiCorresponde();
+}
+
+// ============================================================
+// Inicializar sistema cuando el DOM esté listo
+// ============================================================
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function() {
+    initAdaptacionSistema();
+  });
+} else {
+  // DOM ya cargado
+  initAdaptacionSistema();
+}
+
+// ============================================================
+// Exportar funciones (para compatibilidad con otras partes del código)
+// ============================================================
+window.iniciarSesionAdaptacion = iniciarSesionAdaptacion;
+window.cancelarSesionAdaptacion = cancelarSesionAdaptacion;
+window.finalizarSesionAdaptacion = finalizarSesionAdaptacion;
+window.mostrarBotónFlotanteAdaptacion = mostrarBotónFlotanteAdaptacion;
+window.ocultarBotonFlotanteAdaptacion = ocultarBotonFlotanteAdaptacion;
+window.crearVistaSesionAdaptacion = crearVistaSesionAdaptacion;
+window.restaurarSesionAdaptacion = restaurarSesionAdaptacion;
+window.getToken = getToken;
+window.timerAdaptacion = timerAdaptacion;
+window.adaptacionSegundos = adaptacionSegundos;
+window.programaPrincipiante = PROGRAMA_PRINCIPIANTE;
+
+// ============================================================
+// Integración con logout (limpiar estado de adaptación)
+// ============================================================
+const originalLogout = window.logout || (() => {});
+function logout() {
+  // Limpiar estado de adaptación antes de logout normal
+  localStorage.removeItem(ADAPTACION_STORAGE_KEY);
+  detenerTimerAdaptacion();
+  ocultarBotonFlotanteAdaptacion();
+  
+  // Llamar a logout original si existe
+  if (typeof originalLogout === 'function') {
+    originalLogout();
+  }
+}
+
+window.logout = logout;
+
+// ============================================================
+// Función auxiliar para ocultar el botón flotante cuando la sesión está activa
+// ============================================================
+function actualizarVisibilidadBotonFlotanteAdaptacion() {
+  const vistaActiva = document.getElementById('sesion-adaptacion-view');
+  const estado = localStorage.getItem(ADAPTACION_STORAGE_KEY);
+  
+  if (vistaActiva && estado) {
+    ocultarBotonFlotanteAdaptacion();
+  } else if (estado && !vistaActiva) {
+    mostrarBotónFlotanteAdaptacion();
+  }
+}
+
 // Temporizador de entrenamiento activo
 let intervaloReloj = null;
 let horaInicio     = null;
