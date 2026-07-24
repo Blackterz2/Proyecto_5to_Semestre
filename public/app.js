@@ -3017,6 +3017,150 @@ function volverAPerfil() {
 }
 
 // ============================================================
+// PROGRAMA PRINCIPIANTE — Vista y navegación
+// ============================================================
+function crearVistaProgramaPrincipiante() {
+  if (document.getElementById('programa-principiante-view')) return;
+
+  const vista = document.createElement('div');
+  vista.id = 'programa-principiante-view';
+  vista.className = 'hidden';
+  vista.style.cssText = 'padding: 0 16px 80px;';
+
+  vista.innerHTML = `
+    <!-- Header -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:24px; padding-top:16px;">
+      <button id="btn-volver-desde-principiante" style="
+        background:transparent; border:none; color:var(--text-secondary);
+        cursor:pointer; font-size:14px; padding:0;
+      ">← Volver</button>
+      <h2 style="margin:0; font-size:20px; font-weight:700;">🔰 Programa Principiante</h2>
+    </div>
+
+    <!-- Descripción general -->
+    <div class="ajuste-caja" style="margin-bottom:20px;">
+      <p style="font-size:14px; line-height:1.6; margin:0 0 12px; opacity:0.9;">
+        ${PROGRAMA_PRINCIPIANTE.descripcion}
+      </p>
+      <p style="font-size:13px; line-height:1.5; margin:0 0 8px; color:var(--text-secondary);">
+        ${PROGRAMA_PRINCIPIANTE.descansoPosta}
+      </p>
+      <p style="font-size:13px; line-height:1.5; margin:0; color:var(--text-secondary);">
+        ${PROGRAMA_PRINCIPIANTE.notaEntrenador}
+      </p>
+    </div>
+
+    <!-- Nota de peso -->
+    <div class="ajuste-caja" style="margin-bottom:24px; border-color:rgba(233,69,96,0.3);">
+      <p style="font-size:13px; line-height:1.5; margin:0;">
+        ${PROGRAMA_PRINCIPIANTE.notaPeso}
+      </p>
+    </div>
+
+    <!-- Orden recomendado -->
+    <div style="
+      display:flex; align-items:center; justify-content:center;
+      gap:8px; margin-bottom:24px; font-size:13px; opacity:0.7;
+      flex-wrap:wrap;
+    ">
+      <span>💪 Empuje</span>
+      <span>→</span>
+      <span>😴 Descanso</span>
+      <span>→</span>
+      <span>🏋️ Tirón</span>
+      <span>→</span>
+      <span>😴 Descanso</span>
+      <span>→</span>
+      <span>🦵 Piernas</span>
+      <span>→</span>
+      <span>😴 Descanso</span>
+    </div>
+
+    <!-- Cards de las 3 rutinas -->
+    <div id="programa-rutinas-grid" style="display:flex; flex-direction:column; gap:16px;">
+      ${PROGRAMA_PRINCIPIANTE.rutinas.map(rutina => `
+        <div class="ajuste-caja programa-rutina-card" data-rutina-id="${rutina.id}"
+          style="cursor:pointer; border-color:${rutina.color}33; transition:border-color 0.2s;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <div>
+              <div style="font-size:17px; font-weight:700; margin-bottom:2px;">
+                ${rutina.emoji} ${rutina.nombre}
+              </div>
+              <div style="font-size:12px; opacity:0.6;">${rutina.musculos}</div>
+            </div>
+            <button class="btn-comenzar-rutina" data-rutina-id="${rutina.id}" style="
+              background:${rutina.color}; color:#fff; border:none;
+              border-radius:8px; padding:8px 16px; font-size:13px;
+              font-weight:700; cursor:pointer; white-space:nowrap;
+            ">Comenzar →</button>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            ${rutina.ejercicios.map((ej, i) => `
+              <div style="
+                font-size:12px; padding:4px 8px; border-radius:6px;
+                background:rgba(255,255,255,0.04);
+                display:flex; align-items:center; gap:8px;
+              ">
+                <span style="opacity:0.5; min-width:16px;">${i + 1}.</span>
+                <span style="opacity:0.9;">${ej.nombre}</span>
+                <span style="opacity:0.4; margin-left:auto; font-size:11px;">
+                  ${ej.tipo === 'calentamiento' ? '🔥 Calentamiento' : `${ej.series}×${ej.repeticiones}`}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  // Insertar en el app-content antes de rutinas-view
+  const rutinasView = document.getElementById('rutinas-view');
+  rutinasView?.parentNode?.insertBefore(vista, rutinasView);
+}
+
+function mostrarVistaProgramaPrincipiante() {
+  crearVistaProgramaPrincipiante();
+
+  // Ocultar todas las vistas
+  document.getElementById('rutinas-view')?.classList.add('hidden');
+  document.getElementById('perfil-view')?.classList.add('hidden');
+  document.getElementById('entrenar-view')?.classList.add('hidden');
+  document.getElementById('ajustes-view')?.classList.add('hidden');
+
+  document.getElementById('programa-principiante-view')?.classList.remove('hidden');
+
+  // Listener del botón volver (una sola vez)
+  const btnVolver = document.getElementById('btn-volver-desde-principiante');
+  if (btnVolver && !btnVolver.dataset.listenerAdded) {
+    btnVolver.addEventListener('click', () => {
+      document.getElementById('programa-principiante-view')?.classList.add('hidden');
+      mostrarApp();
+      mostrarVistaRutinas();
+      cargarRutinasUsuario();
+    });
+    btnVolver.dataset.listenerAdded = 'true';
+  }
+
+  // Listeners de "Comenzar →" (delegación)
+  const grid = document.getElementById('programa-rutinas-grid');
+  if (grid && !grid.dataset.listenerAdded) {
+    grid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-comenzar-rutina');
+      if (btn) {
+        const rutinaId = btn.dataset.rutinaId;
+        iniciarSesionAdaptacion(rutinaId);
+      }
+    });
+    grid.dataset.listenerAdded = 'true';
+  }
+}
+
+function iniciarSesionAdaptacion(rutinaId) {
+  mostrarToast(`Iniciando sesión de ${rutinaId}... (próximo hito)`, 'success');
+}
+
+// ============================================================
 // cargarRutinasUsuario()
 // ============================================================
 // Obtiene TODAS las rutinas del usuario autenticado
@@ -3057,6 +3201,15 @@ async function cargarRutinasUsuario() {
     const restantes = 4 - total;
     const limite = total >= 4;
     let html = '';
+
+    // ── Card Programa Principiante (siempre visible) ──
+    html += `\n      <div id=\"card-programa-principiante\" class=\"programa-principiante-card programa-principiante-static\">
+        <div class=\"programa-principiante-badge\">🔰 PROGRAMA GUIADO</div>
+        <div class=\"programa-principiante-titulo\">Empuje · Tirón · Piernas</div>
+        <div class=\"programa-principiante-subtitulo\">
+          Programa de adaptación para principiantes — 3 días, 5 ejercicios por sesión
+        </div>
+        <div class=\"programa-principiante-cta\">Ver programa →</div>\n      </div>\n    `;
 
     // Sección: Recomendadas
     if (recomendadas.length > 0) {
@@ -5178,6 +5331,12 @@ function mostrarDetalleEjercicio(ejercicioId) {
 // Delegación global: captura clics en .img-ejercicio-thumb
 // Busca el id del ejercicio en el catálogo para mostrar datos completos
 document.addEventListener('click', (e) => {
+  // Click en card del programa principiante
+  if (e.target.closest('#card-programa-principiante')) {
+    mostrarVistaProgramaPrincipiante();
+    return;
+  }
+
   // Click en una fila del historial → abrir detalle de sesión
   const filaHistorial = e.target.closest('.historial-row');
   if (filaHistorial) {
