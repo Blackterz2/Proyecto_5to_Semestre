@@ -2009,6 +2009,166 @@ function esVideo(url) {
 }
 
 // ============================================================
+// finalizarSesionAdaptacion() — CORREGIDO: Obtener rutina_id del usuario para cumplir con not null constraint del backend
+// ============================================================
+async function finalizarSesionAdaptacion() {
+  try {
+    // Obtener estado de la sesión desde localStorage
+    const estado = localStorage.getItem(ADAPTACION_STORAGE_KEY);
+    if (!estado) {
+      mostrarToast('No hay sesión activa para finalizar', 'error');
+      return;
+    }
+
+    const estadoParsed = JSON.parse(estado);
+    const rutinaPrograma = PROGRAMA_PRINCIPIANTE.rutinas.find(r => r.id === estadoParsed.rutinaId);
+    if (!rutinaPrograma) {
+      mostrarToast('Rutina del programa no encontrada', 'error');
+      return;
+    }
+
+    // Obtener la primera rutina del usuario como rutina_id para cumplir con not null constraint
+    let rutinaIdParaSesion = null;
+    try {
+      const resRutinas = await fetch('/api/rutinas', {
+        headers: { 'Authorization': 'Bearer ' + getToken() }
+      });
+      if (resRutinas.ok) {
+        const jsonRutinas = await resRutinas.json();
+        if (jsonRutinas.data && jsonRutinas.data.length > 0) {
+          rutinaIdParaSesion = jsonRutinas.data[0].id;
+        }
+      }
+    } catch (error) {
+      console.error('Error al obtener rutina del usuario:', error);
+    }
+
+  // Si el usuario no tiene rutinas propias, no se puede guardar una sesión
+  if (!rutinaIdParaSesion) {
+    mostrarToast('No se puede guardar sesión de adaptación — necesitá al menos una rutina creada por vos', 'error');
+    if (btnFinalizar) {
+      btnFinalizar.disabled = false;
+      btnFinalizar.textContent = '💾 Finalizar entrenamiento';
+    }
+    return;
+  }
+
+  // Obtener los checkboxes de series de ejercicios desde el DOM
+  const rutinasEjercicios = rutinaPrograma.ejercicios;
+  const seriesFinalizadas = [];
+
+  for (let ejIndex = 0; ejIndex < rutinasEjercicios.length; ejIndex++) {
+    const rutinaEjercicio = rutinasEjercicios[ejIndex];
+
+    // Buscar el checkbox de la serie correspondiente (primera serie del ejercicio)
+    const checkSelector = `.adaptacion-check-serie[data-ejercicio=\"${ejIndex}\"]`;
+    const checkbox = document.querySelector(checkSelector);
+
+    const seriesData = {
+      ejercicio_id: null, // Se actualizará con el fetch real más adelante
+      nombre: rutinaEjercicio.nombre,
+      nombreDB: rutinaEjercicio.nombreDB,
+      series: Array.from({ length: rutinaEjercicio.series || 3 }, (_, sIndex) => {
+        const estaCompletada = sIndex === 0 ? (checkbox?.checked ? 1 : 0) : 0;
+        return {
+          numero_serie: sIndex + 1,
+          repeticiones: parseInt(rutinaEjercicio.repeticiones) || 10,
+          peso: 0,
+          completada: estaCompletada,
+        };
+      }),
+    };
+
+      seriesFinalizadas.push(seriesData);
+    }
+
+    // Obtener IDs de ejercicios del catálogo para enviar al backend
+    let catalogoEjercicios = [];
+    try {
+      const token = getToken();
+      if (token) {
+        const response = await fetch('/api/ejercicios', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          catalogoEjercicios = data.data || [];
+        }
+      }
+    } catch (catalogError) {
+      console.error('Error al cargar catálogo de ejercicios:', catalogError);
+    }
+
+    // Mapear nombres de ejercicios a IDs
+    const seriesConIds = seriesFinalizadas.map(ej => {
+      const ejercicioEncontrado = catalogoEjercicios.find(e => e.nombre === ej.nombreDB);
+      return {
+        ...ej,
+        ejercicio_id: ejercicioEncontrado?.id || null,
+      };
+    });
+
+    // Preparar payload para POST /api/sesiones - rutina_id SOLVED
+    const payload = {
+      rutina_id: rutinaIdParaSesion, // SOLVED: ahora con un ID válido
+      fecha: new Date().toISOString().split('T')[0],
+      duracion_minutos: Math.round(adaptacionSegundos / 60) || 1,
+      notas: `Sesión de adaptación — ${rutinaPrograma.nombre || 'Programa Principiante'} (usando rutina: ${rutinaIdParaSesion})`,
+      ejercicios: seriesConIds.map(ej => ({
+        ejercicio_id: ej.ejercicio_id,
+        series: ej.series,
+      })),
+    };
+
+    console.log('Payload final para guardar sesión:', payload);
+
+    // Enviar al backend
+    const token = getToken();
+    if (!token) {
+      mostrarToast('No hay token de autenticación', 'error');
+      return;
+    }
+
+    const response = await fetch('/api/sesiones', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log('Sesión guardada:', result);
+
+    // Limpiar estado de sesión de adaptación
+    detenerTimerAdaptacion();
+    localStorage.removeItem(ADAPTACION_STORAGE_KEY);
+    ocultarBotonFlotanteAdaptacion();
+
+    const vista = document.getElementById('sesion-adaptacion-view');
+    if (vista) {
+      vista.remove();
+    }
+
+    mostrarApp();
+    mostrarVistaRutinas();
+    cargarRutinasUsuario();
+
+    mostrarToast(`✅ Sesión de ${rutinaPrograma.nombre || 'Programa Principiante'} guardada con ID: ${rutinaIdParaSesion}`, 'success');
+
+  } catch (error) {
+    console.error('Error al finalizar sesión de adaptación:', error);
+    mostrarToast(`Error al guardar sesión: ${error.message}`, 'error');
+  }
+}
+
+// ============================================================
 // renderizarImagenEjercicio(ej)
 // ============================================================
 // Devuelve el HTML para representar un ejercicio: <video> si
