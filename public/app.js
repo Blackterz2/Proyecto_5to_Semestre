@@ -3770,14 +3770,6 @@ function mostrarVistaProgramaPrincipiante() {
   }
 }
 
-function iniciarSesionAdaptacion(rutinaId) {
-  const rutina = PROGRAMA_PRINCIPIANTE.rutinas.find(r => r.id === rutinaId);
-  if (!rutina) return;
-
-  crearVistaSesionAdaptacion(rutina);
-  mostrarVistaSesionAdaptacion();
-}
-
 // ============================================================
 // PASO 1 — crearVistaSesionAdaptacion(rutina)
 // ============================================================
