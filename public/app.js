@@ -546,6 +546,17 @@ async function iniciarSesionAdaptacion(rutinaId) {
   }
 }
 
+function mostrarVistaRutinas() {
+  rutinasView?.classList.remove('hidden');
+  perfilView?.classList.add('hidden');
+  entrenarView?.classList.add('hidden');
+  ajustesView?.classList.add('hidden');
+  btnTabRutinas?.classList.add('nav-tab--active');
+  btnTabPerfil?.classList.remove('nav-tab--active');
+  btnTabEntrenar?.classList.remove('nav-tab--active');
+  if (entrenamientoActivo) mostrarFloatingTimer();
+}
+
 function cancelarSesionAdaptacion() {
   try {
     detenerTimerAdaptacion();
@@ -840,33 +851,6 @@ function mostrarBotónFlotanteAdaptacionSiCorresponde() {
   } else {
     ocultarBotonFlotanteAdaptacion();
   }
-}
-
-// Reemplazar algunas funciones existentes con versiones que soporte adaptación
-// (estas modificaciones son menores y mantienen compatibilidad)
-const originalMostrarVistaPerfilHistorial = mostrarVistaPerfilHistorial;
-const originalMostrarVistaEntrenar = mostrarVistaEntrenar;
-
-function mostrarVistaRutinas() {
-  rutinasView?.classList.remove('hidden');
-  perfilView?.classList.add('hidden');
-  entrenarView?.classList.add('hidden');
-  ajustesView?.classList.add('hidden');
-  btnTabRutinas?.classList.add('nav-tab--active');
-  btnTabPerfil?.classList.remove('nav-tab--active');
-  btnTabEntrenar?.classList.remove('nav-tab--active');
-  if (entrenamientoActivo) mostrarFloatingTimer();
-  mostrarBotónFlotanteAdaptacionSiCorresponde();
-}
-
-function mostrarVistaPerfilHistorial() {
-  originalMostrarVistaPerfilHistorial();
-  mostrarBotónFlotanteAdaptacionSiCorresponde();
-}
-
-function mostrarVistaEntrenar() {
-  originalMostrarVistaEntrenar();
-  mostrarBotónFlotanteAdaptacionSiCorresponde();
 }
 
 // ============================================================
