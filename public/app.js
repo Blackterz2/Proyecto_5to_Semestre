@@ -4021,11 +4021,6 @@ function cancelarSesionAdaptacion() {
   mostrarToast('Sesión cancelada', 'error');
 }
 
-function finalizarSesionAdaptacion() {
-  // Se implementa en 3B — guardado en historial + limpieza
-  mostrarToast('Guardando sesión... (próximo hito)', 'success');
-}
-
 // ============================================================
 // cargarRutinasUsuario()
 // ============================================================
