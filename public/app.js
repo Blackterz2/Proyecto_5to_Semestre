@@ -5726,6 +5726,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('offline', mostrarBannerOffline);
   window.addEventListener('online', ocultarBannerOffline);
 
+  // Botón reiniciar tours
+  document.getElementById('btn-reiniciar-tours')
+    ?.addEventListener('click', () => {
+      resetearTours();
+      mostrarToast('Tutorial reiniciado — navegá entre las vistas para verlo 🎓', 'success');
+    });
+
 });
 
 // ============================================================
