@@ -4107,9 +4107,9 @@ formOnboarding?.addEventListener('submit', (e) => {
     peso_actual: fd.get('peso_actual') ? aKg(fd.get('peso_actual')) : null,
     estatura_cm: fd.get('estatura_cm') ? aCm(fd.get('estatura_cm')) : null,
   };
-  // Ocultar formulario, mostrar pregunta
-  stepForm?.classList.add('hidden');
-  stepPregunta?.classList.remove('hidden');
+  // Saltar la pregunta de rutina recomendada —
+  // el programa principiante está en el dashboard
+  enviarOnboarding(false);
 });
 
 // ============================================================
