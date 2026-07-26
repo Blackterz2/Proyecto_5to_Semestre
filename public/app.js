@@ -1176,10 +1176,12 @@ function ejecutarTour(pasos, storageKey) {
 // ============================================================
 function resetearTours() {
   localStorage.removeItem('tourRutinasVisto');
+  localStorage.removeItem('tourRutinasVisto_v2');
   localStorage.removeItem('tourEntrenarVisto');
   localStorage.removeItem('tourEntrenarVisto_v2');
   localStorage.removeItem('tourEntrenarVisto_v3');
   localStorage.removeItem('tourPerfilVisto');
+  localStorage.removeItem('tourPerfilVisto_v2');
   console.log('✅ Tours reseteados. Recargá la página.');
 }
 window.resetearTours = resetearTours;
@@ -2529,8 +2531,13 @@ async function cargarHistorial() {
         selector: '#historial-container',
         titulo: '📋 Tu historial',
         mensaje: 'Cada fila es una sesión guardada con fecha, duración, volumen y series completadas.'
+      },
+      {
+        selector: '#logros-grid',
+        titulo: '🏆 Tus Logros',
+        mensaje: 'Cada vez que entrenás sumás días. Desbloqueá medallas según tu constancia — hacé clic en una para verla en detalle.'
       }
-    ], 'tourPerfilVisto');
+    ], 'tourPerfilVisto_v2');
 
   } catch {
     // Si hay error de red, usar datos del JWT como fallback
@@ -3563,6 +3570,11 @@ async function cargarRutinasUsuario() {
     if (rutinasExisten) {
       ejecutarTour([
         {
+          selector: '#card-programa-principiante',
+          titulo: '🔰 Programa Principiante',
+          mensaje: 'Si sos nuevo en el gym, empezá por acá. Tiene un programa guiado de 3 días con ejercicios, instrucciones y peso sugerido.'
+        },
+        {
           selector: '.rutina-card:not(.rutina-card--add)',
           titulo: '🏋️ Tus Rutinas',
           mensaje: 'Cada tarjeta es un entrenamiento. Hacé clic sobre ella para comenzar una sesión.'
@@ -3582,7 +3594,7 @@ async function cargarRutinasUsuario() {
           titulo: '➕ Nueva Rutina',
           mensaje: '¿Listo para un nuevo desafío? Tocá acá para armar una rutina personalizada desde cero.'
         }
-      ], 'tourRutinasVisto');
+      ], 'tourRutinasVisto_v2');
     }
 
   } catch (error) {
