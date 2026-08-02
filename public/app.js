@@ -1553,6 +1553,9 @@ function mostrarVistaRutinas() {
   perfilView?.classList.add('hidden');
   entrenarView?.classList.add('hidden');
   ajustesView?.classList.add('hidden');
+  document.getElementById('sesion-adaptacion-view')?.classList.add('hidden');
+  document.getElementById('programa-principiante-view')?.classList.add('hidden');
+  detenerTimerAdaptacion();
   btnTabRutinas?.classList.add('nav-tab--active');
   btnTabPerfil?.classList.remove('nav-tab--active');
   btnTabEntrenar?.classList.remove('nav-tab--active');
@@ -1565,6 +1568,9 @@ function mostrarVistaPerfil() {
   perfilView?.classList.remove('hidden');
   entrenarView?.classList.add('hidden');
   ajustesView?.classList.add('hidden');
+  document.getElementById('sesion-adaptacion-view')?.classList.add('hidden');
+  document.getElementById('programa-principiante-view')?.classList.add('hidden');
+  detenerTimerAdaptacion();
   btnTabRutinas?.classList.remove('nav-tab--active');
   btnTabPerfil?.classList.add('nav-tab--active');
   btnTabEntrenar?.classList.remove('nav-tab--active');
@@ -1577,6 +1583,9 @@ function mostrarEntrenar() {
   perfilView?.classList.add('hidden');
   entrenarView?.classList.remove('hidden');
   ajustesView?.classList.add('hidden');
+  document.getElementById('sesion-adaptacion-view')?.classList.add('hidden');
+  document.getElementById('programa-principiante-view')?.classList.add('hidden');
+  detenerTimerAdaptacion();
   btnTabRutinas?.classList.remove('nav-tab--active');
   btnTabPerfil?.classList.remove('nav-tab--active');
   btnTabEntrenar?.classList.add('nav-tab--active');
@@ -1988,6 +1997,21 @@ async function cargarRutina(rutinaId) {
           mensaje: 'Tachá la serie cuando la terminés. Solo las series marcadas cuentan para tu volumen total.'
         },
         {
+          selector: 'input[data-campo="repeticiones"]',
+          titulo: '🔢 Repeticiones',
+          mensaje: 'Escribí acá cuántas repeticiones hiciste en la serie. Dejá en 0 si fue sin repeticiones.'
+        },
+        {
+          selector: '.btn-delete-serie',
+          titulo: '🗑️ Borrar serie',
+          mensaje: '¿Te equivocaste? Este botón elimina la serie de la fila.'
+        },
+        {
+          selector: '.btn-serie',
+          titulo: '➕ Agregar serie',
+          mensaje: '¿Necesitás una serie más? Tocá "+ Serie" para agregar otra fila.'
+        },
+        {
           selector: '.descanso-wrapper',
           titulo: '⏸️ Temporizador de descanso',
           mensaje: 'Configurá los segundos acá. Al marcar una serie como completada, aparece una barra global abajo con el countdown.'
@@ -1998,9 +2022,24 @@ async function cargarRutina(rutinaId) {
           mensaje: 'El tiempo corre desde que cargás la rutina. Así sabés cuánto duró tu sesión.'
         },
         {
+          selector: '.ejercicio-notas',
+          titulo: '📝 Notas del ejercicio',
+          mensaje: 'Escribí acá notas del ejercicio: sensaciones, ajustes o lo que quieras recordar.'
+        },
+        {
+          selector: '.btn-eliminar-ejercicio',
+          titulo: '🗑️ Borrar ejercicio',
+          mensaje: '¿Querés sacar este ejercicio de la sesión? Este botón lo elimina.'
+        },
+        {
           selector: '#buscador-extra-ejercicios',
           titulo: '🔍 Agregar ejercicio extra',
           mensaje: '¿Querés sumar un ejercicio que no está en tu rutina? Buscalo acá y se agrega al instante.'
+        },
+        {
+          selector: '.btn-agregar-ejercicio',
+          titulo: '➕ Agregar a la sesión',
+          mensaje: 'Cuando veas el ejercicio que buscás, tocá "+" para sumarlo a tu sesión.'
         },
         {
           selector: '#btn-finalizar',
@@ -3415,8 +3454,10 @@ function cancelarSesionAdaptacion() {
 }
 
 function finalizarSesionAdaptacion() {
-  // Se implementa en 3B — guardado en historial + limpieza
-  mostrarToast('Guardando sesión... (próximo hito)', 'success');
+  detenerTimerAdaptacion();
+  document.getElementById('sesion-adaptacion-view')?.classList.add('hidden');
+  mostrarVistaProgramaPrincipiante();
+  mostrarToast('Sesión finalizada ✅', 'success');
 }
 
 // ============================================================
